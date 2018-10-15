@@ -458,12 +458,12 @@ chart.RelativePerformance(returns[,1],returns[,2],colorset=c("red","blue"),lwd=2
 
 ### System Check
 
-To make sure that our system worked properly some transactions were observed to make sure that the trades were performed according to the defined rules. Prepare the chart. Check 3 transactions.
+To make sure that our system worked properly some transactions were observed to make sure that the trades were performed according to the defined rules. Prepare the chart. Check 4 transactions.
 ```{r message=FALSE, results="hide", warning=FALSE}
 rm(daterange_check)
 daterange_check <- c()
 transactionsInstrument <- getTxns(Portfolio=portfolioname,Symbol=instrument)
-for (i in c(2,4, (nrow(transactionsInstrument)-7), (nrow(transactionsInstrument)-5))) {
+for (i in c(2,6, (nrow(transactionsInstrument)-7), (nrow(transactionsInstrument)-5))) {
   from <- as.Date(index(transactionsInstrument[i,1]))-7
   to <- as.Date(index(transactionsInstrument[i+1,1]))+7
   daterange_check <- c(daterange_check, paste(from, "::", to, sep = ""))
