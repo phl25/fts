@@ -50,7 +50,7 @@ emaPeriod <- 200
 maxHoldingPeriod <- 30
 
 InstrumentDirectory <- "~/Desktop/R/DownloadedData/"
-instrumentlist <- c("SAP.csv")
+instrumentlist <- c("SAP.csv", "DBK.csv")
 BuyHoldDirectory <- InstrumentDirectory
 BuyHoldInstrument <- "DAXEX.csv"
 
@@ -94,7 +94,7 @@ for (instrument in instrumentlist) {
     
     # Merge the xts file with the Exponential Moving Average
     symbol <- merge(symbol,ema)
-  
+    assign(instrument,symbol)
   # Starting to go bar by bar through using a "for loop"
   for (i in (emaPeriod + 1):(nrow(symbol) - 1)) {
     # Dates
@@ -299,7 +299,6 @@ for (instrument in instrumentlist) {
 ```
 
 
-
 ### Part C: Analysis and Reporting
 ```{r message=FALSE, echo=FALSE}  
 # Settings for graph
@@ -315,23 +314,30 @@ addEMAString <- paste("add_EMA(n=",emaPeriod,")",sep = "")
 ```
 
 #### Visualize original data
-Plot of the `r instrument` instrument with the EMA line which indicates the general trend of the stock exponentially smoothed for the last 200 days. Moreover, the tradevolume is added below the graph.
+Plot of the instrument with the EMA line which indicates the general trend of the stock exponentially smoothed for the last 200 days. Moreover, the tradevolume is added below the graph. THIS FUNCTION DOES NOT WORK IN A FOR LOOP
 ```{r message=FALSE, echo=FALSE}
-chart_Series(x=symbol,name=instrument,theme=myTheme, subset=daterange,TA="add_TA((symbol$EMA), on=1,type='l',col='blue');add_Vo()")
+for (instrument in instrumentlist){
+  chart <- get(instrument)
+  print(chart_Series(x=chart,name=instrument,theme=myTheme, subset=daterange,TA="add_TA((chart$EMA), on=1,type='l',col='blue');add_Vo()"))
+}
 ```
 
 
 #### All transactions performed by the trading system
 The following table can be used to get a better overview of the transactions performed and the exact details per transaction. 
 ```{r message=FALSE, echo=FALSE}
-getTxns(Portfolio=portfolioname,Symbol=instrument)
+for (instrument in instrumentlist){
+print(getTxns(Portfolio=portfolioname,Symbol=instrument))
+}
 ```
 
 #### Graph which visualize the transactions
 The following graph shows the combined view of the performance of the Smash Day trading system. It visualizes the trades (buy-transactions are visualized in green and sell-transactions are visualized in red). Moreover, the size of the blue squares indicates the size of the position (height) and the holding duration of the position (width). The green line shows the cummulative net profit curve, while the red curve indicates the drawdown on each day compared to the last reached high.
 ```{r message=FALSE, echo=FALSE}
 # Plot graph with indicators for transaction 
-chart.Posn(portfolioname,Symbol=instrument,type='candlesticks', theme=myTheme,subset=daterange,TA=addEMAString)
+for (instrument in instrumentlist){
+  chart.Posn(portfolioname,Symbol=instrument,type='candlesticks', theme=myTheme,subset=daterange,TA=addEMAString)
+}
 ```
 
 #### Performance Statistics
