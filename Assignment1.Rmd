@@ -314,20 +314,11 @@ addEMAString <- paste("add_EMA(n=",emaPeriod,")",sep = "")
 ```
 
 #### Visualize original data
-Plot of the instrument with the EMA line which indicates the general trend of the stock exponentially smoothed for the last 200 days. Moreover, the tradevolume is added below the graph. THIS FUNCTION DOES NOT WORK IN A FOR LOOP
+Plot of the instrument with the EMA line which indicates the general trend of the stock exponentially smoothed for the last 200 days. Moreover, the tradevolume is added below the graph.
 ```{r message=FALSE, echo=FALSE}
 for (instrument in instrumentlist){
   chart <- get(instrument)
   print(chart_Series(x=chart,name=instrument,theme=myTheme, subset=daterange,TA="add_TA((chart$EMA), on=1,type='l',col='blue');add_Vo()"))
-}
-```
-
-
-#### All transactions performed by the trading system
-The following table can be used to get a better overview of the transactions performed and the exact details per transaction. 
-```{r message=FALSE, echo=FALSE}
-for (instrument in instrumentlist){
-print(getTxns(Portfolio=portfolioname,Symbol=instrument))
 }
 ```
 
@@ -340,17 +331,26 @@ for (instrument in instrumentlist){
 }
 ```
 
-#### Performance Statistics
-The following table summarizes some important trading statistics
-```{r message=FALSE, echo=FALSE, results="hide"}
-tstats <- tradeStats(Portfolio=portfolioname)
-trades.tab <- cbind(
-  c("Trades", "Win Percent", "Loss Percent","W/L Ratio"),
-  c(tstats[,"Num.Trades"],tstats[,"Percent.Positive"],tstats[,"Percent.Negative"],tstats[,"Percent.Positive"]/tstats[,"Percent.Negative"]))
+#### All transactions performed by the trading system
+The following table can be used to get a better overview of the transactions performed and the exact details per transaction. 
+```{r message=FALSE, echo=FALSE}
+for (instrument in instrumentlist){
+  print(instrument)
+  print(getTxns(Portfolio=portfolioname,Symbol=instrument))
+}
 ```
 
-```{r message=FALSE, echo=FALSE}
-trades.tab
+#### Performance Statistics
+The following table summarizes some important trading statistics for all instruments.
+```{r message=FALSE}
+tstats <- tradeStats(Portfolio=portfolioname, Symbols=instrumentlist)
+for (i in 1:nrow(tstats)) {
+  trades.tab <- cbind(
+    c("Trades", "Win Percent", "Loss Percent","W/L Ratio"),
+    c(tstats[i,"Num.Trades"],tstats[i,"Percent.Positive"],tstats[i,"Percent.Negative"],tstats[i,"Percent.Positive"]/tstats[i,"Percent.Negative"]))
+  print(row.names(tstats[i,]))
+  print(trades.tab)
+  }
 ```
 
 #### Visualize returns of the trading strategy
@@ -363,24 +363,23 @@ rownames(rets) <- NULL # this step is important!
 ```
 
 ```{r message=FALSE}
-charts.PerformanceSummary(rets,colorset=bluefocus)
+charts.PerformanceSummary(rets,colorset=bluefocus,main=instrumentlist)
 ```
 
 #### Calculate statistics of the Portfolio
-```{r message=FALSE, results="hide"}
+```{r message=FALSE}
 tab.perf <- table.Arbitrary(rets, metrics=c("Return.cumulative", "Return.annualized","SharpeRatio.annualized","CalmarRatio"),
                             metricsNames=c("Cumulative Return", "Annualized Return", "Annualized Sharp Ratio","Calmar Ratio"))
 tab.risk <- table.Arbitrary(rets, metrics=c("StdDev.annualized", "maxDrawdown","VaR","ES"),
                             metricsNames=c("Annualized StdDev", "Max Drawdown", "Value-at-Risk","Conditional VaR"))
 # present the portfolio statistics
-somestats <- data.frame(rownames(tab.perf),tab.perf[,1], rownames(tab.risk),tab.risk[,1])
+for (i in 1:ncol(tab.perf)) {
+somestats <- data.frame(rownames(tab.perf),tab.perf[i,1], rownames(tab.risk),tab.risk[i,1])
+colnames(rets[,i])
 colnames(somestats) <- c("Performance Metric", "Performance Value", "Risk Metric", "Risk Value")
+print(somestats)
+}
 ```
-
-```{r message=FALSE, echo=FALSE}
-somestats
-```
-
 
 ## Compare with Buy and Hold Strategy
 In order to compare the trading strategy properly we need to define a benchmark against which we can measure the results. In this case a simple buy and hold strategy is used. At the first date of the trading period we place a buy order and sell our position at the last day of the selected period.
@@ -439,8 +438,8 @@ In order to compare the results of both strategies we calculat the returns for t
 ```{r message=FALSE, results="hide"}
 rets.bh <- PortfReturns(Account='buyhold')
 returns <- cbind(rets,rets.bh)
-rulecol <- paste(portfolioname,instrument,sep="-")
-colnames(returns) <- c(rulecol,"Buy-and-hold")
+#rulecol <- paste(portfolioname,instrument,sep="-")
+#colnames(returns) <- c(rulecol,"Buy-and-hold")
 ```
 
 We compare the two strategies by showing some statistical metrics of the returns and plot the returns in one chart to directly compare the performance of the strategies.
@@ -461,7 +460,7 @@ chart.RelativePerformance(returns[,1],returns[,2],colorset=c("red","blue"),lwd=2
 ### System Check
 
 To make sure that our system worked properly some transactions were observed to make sure that the trades were performed according to the defined rules. Prepare the chart. Check 4 transactions.
-```{r message=FALSE, results="hide", warning=FALSE}
+```{r eval=FALSE, message=FALSE, warning=FALSE, include=FALSE, results="hide"}
 rm(daterange_check)
 daterange_check <- c()
 transactionsInstrument <- getTxns(Portfolio=portfolioname,Symbol=instrument)
@@ -473,7 +472,7 @@ for (i in c(2,6, (nrow(transactionsInstrument)-7), (nrow(transactionsInstrument)
 ```
 
 Visualize the charts with the transactions which should be checked
-```{r message=FALSE}
+```{r eval=FALSE, message=FALSE, include=FALSE}
 for (daterange_check_i in daterange_check){
   chart.Posn(portfolioname,Symbol=instrument,type='candlesticks', theme=myTheme,subset=daterange_check_i,TA=addEMAString)
 }
