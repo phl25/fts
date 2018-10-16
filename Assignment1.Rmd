@@ -45,7 +45,7 @@ The variables set in the next section can be adjusted to test the strategy with 
 # Set values:
 startCapital <- 1e+6
 transactionCost <- -20
-daterange <- '2016::2018' 
+daterange <- '2003::2018' 
 emaPeriod <- 200
 maxHoldingPeriod <- 30
 
@@ -315,6 +315,7 @@ addEMAString <- paste("add_EMA(n=",emaPeriod,")",sep = "")
 
 #### Visualize original data
 Plot of the instrument with the EMA line which indicates the general trend of the stock exponentially smoothed for the last 200 days. Moreover, the tradevolume is added below the graph.
+
 ```{r message=FALSE, echo=FALSE}
 for (instrument in instrumentlist){
   chart <- get(instrument)
@@ -363,7 +364,7 @@ rownames(rets) <- NULL # this step is important!
 ```
 
 ```{r message=FALSE}
-charts.PerformanceSummary(rets,colorset=bluefocus,main=instrumentlist)
+charts.PerformanceSummary(rets,colorset=rainbow12equal,main=instrumentlist)
 ```
 
 #### Calculate statistics of the Portfolio
