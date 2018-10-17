@@ -8,7 +8,7 @@ output:
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(tidy.opts=list(width.cutoff=48),tidy=TRUE)
 ```
 
 # Introduction
@@ -45,12 +45,12 @@ The variables set in the next section can be adjusted to test the strategy with 
 # Set values:
 startCapital <- 1e+6
 transactionCost <- -20
-daterange <- '2003::2018' 
+daterange <- '2013::2018' 
 emaPeriod <- 200
-maxHoldingPeriod <- 30
+maxHoldingPeriod <- 20
 
 InstrumentDirectory <- "~/Desktop/R/DownloadedData/"
-instrumentlist <- c("SAP.csv", "DBK.csv")
+instrumentlist <- c("SAP.csv","DBK.csv")
 BuyHoldDirectory <- InstrumentDirectory
 BuyHoldInstrument <- "DAXEX.csv"
 
@@ -460,22 +460,21 @@ chart.RelativePerformance(returns[,1],returns[,2],colorset=c("red","blue"),lwd=2
 
 ### System Check
 
-To make sure that our system worked properly some transactions were observed to make sure that the trades were performed according to the defined rules. Prepare the chart. Check 4 transactions.
-```{r eval=FALSE, message=FALSE, warning=FALSE, include=FALSE, results="hide"}
-rm(daterange_check)
-daterange_check <- c()
-transactionsInstrument <- getTxns(Portfolio=portfolioname,Symbol=instrument)
-for (i in c(2,6, (nrow(transactionsInstrument)-7), (nrow(transactionsInstrument)-5))) {
-  from <- as.Date(index(transactionsInstrument[i,1]))-7
-  to <- as.Date(index(transactionsInstrument[i+1,1]))+7
-  daterange_check <- c(daterange_check, paste(from, "::", to, sep = ""))
-}
-```
+To make sure that our system worked properly some transactions were observed to make sure that the trades were performed according to the defined rules. Prepare the chart. Check 4 transactions. Visualize the charts with the transactions which should be checked.
 
-Visualize the charts with the transactions which should be checked
-```{r eval=FALSE, message=FALSE, include=FALSE}
-for (daterange_check_i in daterange_check){
-  chart.Posn(portfolioname,Symbol=instrument,type='candlesticks', theme=myTheme,subset=daterange_check_i,TA=addEMAString)
+```{r echo=TRUE, message=FALSE, warning=FALSE, results="hide"}
+for (instrument in instrumentlist){
+  rm(daterange_check)
+  daterange_check <- c()
+  transactionsInstrument <- getTxns(Portfolio=portfolioname,Symbol=instrument)
+  for (i in c(2,6, (nrow(transactionsInstrument)-7), (nrow(transactionsInstrument)-5))) {
+    from <- as.Date(index(transactionsInstrument[i,1]))-7
+    to <- as.Date(index(transactionsInstrument[i+1,1]))+7
+    daterange_check <- c(daterange_check, paste(from, "::", to, sep = ""))
+  }
+  for (daterange_check_i in daterange_check){
+    print(chart.Posn(portfolioname,Symbol=instrument,type='candlesticks', theme=myTheme,subset=daterange_check_i,TA=addEMAString))
+  }
 }
 ```
 
