@@ -22,13 +22,15 @@ Explain here the traiding idea, where I found it. What the theoretical foundatio
 
 Trade reverse patterns. When observing a fallback, trade to profit from the upward trend after the fallback. etc....
 
-## Implementation of the trading idea
+# Implementation of the trading idea
 
 Short paragraph about what is needed for the implementation
 
-### Part A: Initialization
+## Part A: Initialization
 
-#### General Setup
+### Step 1: General Setup
+We have to clear the environment and initialize the most important packages that we will use.
+
 ```{r message=FALSE}
 # Clear Environment
 rm(list=ls())
@@ -38,7 +40,7 @@ library(blotter)
 library(INFT361Course)
 ```
 
-#### Setting the Variables
+### Step 2: Setting the Variables
 The variables set in the next section can be adjusted to test the strategy with different parameters. 
 
 ```{r message=FALSE, results="hide"}
@@ -63,8 +65,24 @@ portfolioname <- "Smash Day"
 accountname <- portfolioname
 ```
 
+### Step 3: Presetup for plotting graphs
 
-#### Initializing the portfolio
+```{r message=FALSE, echo=TRUE}  
+# Settings for graph
+myTheme <- chart_theme()
+myTheme$col$up.col <- 'lightblue'
+myTheme$col$dn.col <- 'brown'
+myTheme$col$dn.border <- 'lightgray'
+myTheme$col$up.border <- 'lightgray'
+
+# Concatenate string for EMA with input parameter
+addEMAString <- paste("add_EMA(n=",emaPeriod,")",sep = "")
+
+```
+
+
+### Step 3: Initializing the portfolio
+The portfolio takes the instrumentlist which includes all the stocks we defined in Step 2.
 
 ```{r message=FALSE, results="hide"}
 # Clear portfolio and Account
@@ -76,10 +94,12 @@ initAcct(accountname,portfolios=portfolioname,initDate=initdate,initEq=startCapi
 ```
 
 
-### Part B: Bar by bar processing
+## Part B: Bar by bar processing
+### Step 1: Go through the data bar by bar
+Loading the instrument, initializing it and adding the ema to the data. After that we go through the available data bar by bar and apply the buy and sell rules which are defined in the following part.
 
-Loading the instrument, initializing it and adding the ema to the data.
 ```{r message=FALSE, results="hide"}
+# Go through the instrumentlist and perform the activities for all instruments in that list.
 for (instrument in instrumentlist) {
     LoadCourseFile(InstrumentDirectory, instrument, debugme = TRUE, dates = daterange)
     
@@ -298,22 +318,28 @@ for (instrument in instrumentlist) {
 } # End for loop for multiple instruments
 ```
 
+### Step 2: System Check
+In order to make sure that the system works as designed the plots of some choosen transactions are printed in the following.
 
-### Part C: Analysis and Reporting
-```{r message=FALSE, echo=FALSE}  
-# Settings for graph
-myTheme <- chart_theme()
-myTheme$col$up.col <- 'lightblue'
-myTheme$col$dn.col <- 'brown'
-myTheme$col$dn.border <- 'lightgray'
-myTheme$col$up.border <- 'lightgray'
-
-# Concatenate string for EMA with input parameter
-addEMAString <- paste("add_EMA(n=",emaPeriod,")",sep = "")
-
+```{r echo=TRUE, message=FALSE, warning=FALSE, results="hide"}
+for (instrument in instrumentlist){
+  rm(daterange_check)
+  daterange_check <- c()
+  transactionsInstrument <- getTxns(Portfolio=portfolioname,Symbol=instrument)
+  for (i in c(2,6, (nrow(transactionsInstrument)-7), (nrow(transactionsInstrument)-5))) {
+    from <- as.Date(index(transactionsInstrument[i,1]))-7
+    to <- as.Date(index(transactionsInstrument[i+1,1]))+7
+    daterange_check <- c(daterange_check, paste(from, "::", to, sep = ""))
+  }
+  for (daterange_check_i in daterange_check){
+    print(chart.Posn(portfolioname,Symbol=instrument,type='candlesticks', theme=myTheme,subset=daterange_check_i,TA=addEMAString))
+  }
+}
 ```
 
-#### Visualize original data
+## Part C: Analysis and Reporting
+
+### Step 1: Visualize original data
 Plot of the instrument with the EMA line which indicates the general trend of the stock exponentially smoothed for the last 200 days. Moreover, the tradevolume is added below the graph.
 
 ```{r message=FALSE, echo=FALSE}
@@ -323,16 +349,7 @@ for (instrument in instrumentlist){
 }
 ```
 
-#### Graph which visualize the transactions
-The following graph shows the combined view of the performance of the Smash Day trading system. It visualizes the trades (buy-transactions are visualized in green and sell-transactions are visualized in red). Moreover, the size of the blue squares indicates the size of the position (height) and the holding duration of the position (width). The green line shows the cummulative net profit curve, while the red curve indicates the drawdown on each day compared to the last reached high.
-```{r message=FALSE, echo=FALSE}
-# Plot graph with indicators for transaction 
-for (instrument in instrumentlist){
-  chart.Posn(portfolioname,Symbol=instrument,type='candlesticks', theme=myTheme,subset=daterange,TA=addEMAString)
-}
-```
-
-#### All transactions performed by the trading system
+### Step 2: All transactions performed by the trading system
 The following table can be used to get a better overview of the transactions performed and the exact details per transaction. 
 ```{r message=FALSE, echo=FALSE}
 for (instrument in instrumentlist){
@@ -341,8 +358,19 @@ for (instrument in instrumentlist){
 }
 ```
 
-#### Performance Statistics
+### Step 3: Graph which visualize the transactions
+The following graph shows the combined view of the performance of the Smash Day trading system. It visualizes the trades (buy-transactions are visualized in green and sell-transactions are visualized in red). Moreover, the size of the blue squares indicates the size of the position (height) and the holding duration of the position (width). The green line shows the cummulative net profit curve, while the red curve indicates the drawdown on each day compared to the last reached high.
+
+```{r message=FALSE, echo=FALSE}
+# Plot graph with indicators for transaction 
+for (instrument in instrumentlist){
+  chart.Posn(portfolioname,Symbol=instrument,type='candlesticks', theme=myTheme,subset=daterange,TA=addEMAString)
+}
+```
+
+### Step 4: Performance Statistics
 The following table summarizes some important trading statistics for all instruments.
+
 ```{r message=FALSE}
 tstats <- tradeStats(Portfolio=portfolioname, Symbols=instrumentlist)
 for (i in 1:nrow(tstats)) {
@@ -354,20 +382,8 @@ for (i in 1:nrow(tstats)) {
   }
 ```
 
-#### Visualize returns of the trading strategy
+### Step 5: Calculate statistics of the Portfolio and all instruments in the portfolio
 
-```{r message=FALSE, results="hide"}
-library(PerformanceAnalytics) # contains lots of methods to investigate performance
-# obtain the portfolio returns - with these you can compute virtually any financial metrics you wish
-rets <- PortfReturns(Account=accountname) 
-rownames(rets) <- NULL # this step is important!
-```
-
-```{r message=FALSE}
-charts.PerformanceSummary(rets,colorset=rainbow12equal,main=instrumentlist)
-```
-
-#### Calculate statistics of the Portfolio
 ```{r message=FALSE}
 tab.perf <- table.Arbitrary(rets, metrics=c("Return.cumulative", "Return.annualized","SharpeRatio.annualized","CalmarRatio"),
                             metricsNames=c("Cumulative Return", "Annualized Return", "Annualized Sharp Ratio","Calmar Ratio"))
@@ -382,9 +398,24 @@ print(somestats)
 }
 ```
 
+### Step 6: Visualize returns of the trading strategy
+
+```{r message=FALSE, results="hide"}
+library(PerformanceAnalytics) # contains lots of methods to investigate performance
+# obtain the portfolio returns - with these you can compute virtually any financial metrics you wish
+rets <- PortfReturns(Account=accountname) 
+rownames(rets) <- NULL # this step is important!
+```
+
+```{r message=FALSE}
+charts.PerformanceSummary(rets,colorset=rainbow12equal,main=instrumentlist)
+```
+
 ## Compare with Buy and Hold Strategy
 In order to compare the trading strategy properly we need to define a benchmark against which we can measure the results. In this case a simple buy and hold strategy is used. At the first date of the trading period we place a buy order and sell our position at the last day of the selected period.
 In order to do this we create a new Portfolio and a new Account.
+
+### Step 1: Perform the Buy and Hold Strategy
 
 ```{r message=FALSE, results="hide"}
   # We remove any objects, in case there was a buyhold portfolio initialized before
@@ -428,14 +459,16 @@ In order to do this we create a new Portfolio and a new Account.
   updateEndEq(Account="buyhold")
 ```  
   
-#### Visualize the Buy and Hold strategy
-  We can see that we hold the position from the first until the last date. The cumulative profits are visualized by the green line.
+### Step 2: Visualize the Buy and Hold strategy
+We can see that we hold the position from the first until the last date. The cumulative profits are visualized by the green line.
+
 ```{r message=FALSE}
   chart.Posn("buyhold",Symbol=BuyHoldInstrument, theme=myTheme)
 ```
 
-### Compare the returns of the trading strategy with the buy and hold strategy
+### Step 3: Compare the returns of the trading strategy with the buy and hold strategy
 In order to compare the results of both strategies we calculat the returns for the buy and hold strategy and combine them with the returns of the trading strategy which were calculatet before.
+
 ```{r message=FALSE, results="hide"}
 rets.bh <- PortfReturns(Account='buyhold')
 returns <- cbind(rets,rets.bh)
@@ -444,6 +477,7 @@ returns <- cbind(rets,rets.bh)
 ```
 
 We compare the two strategies by showing some statistical metrics of the returns and plot the returns in one chart to directly compare the performance of the strategies.
+
 ```{r message=FALSE}
 table.Stats(returns)
 table.AnnualizedReturns(returns)
@@ -451,37 +485,6 @@ charts.PerformanceSummary(returns,geometric=FALSE,wealth.index=TRUE)
 chart.RiskReturnScatter(returns,Rf=0,add.sharpe=c(1,2),xlim=c(0,0.25),main="Return versus Risk",colorset = c("red","blue"))
 chart.RelativePerformance(returns[,1],returns[,2],colorset=c("red","blue"),lwd=2,legend.loc="topleft")
 ```
-
-## Backtest
-
-### Approach
-
-### Implementation
-
-### System Check
-
-To make sure that our system worked properly some transactions were observed to make sure that the trades were performed according to the defined rules. Prepare the chart. Check 4 transactions. Visualize the charts with the transactions which should be checked.
-
-```{r echo=TRUE, message=FALSE, warning=FALSE, results="hide"}
-for (instrument in instrumentlist){
-  rm(daterange_check)
-  daterange_check <- c()
-  transactionsInstrument <- getTxns(Portfolio=portfolioname,Symbol=instrument)
-  for (i in c(2,6, (nrow(transactionsInstrument)-7), (nrow(transactionsInstrument)-5))) {
-    from <- as.Date(index(transactionsInstrument[i,1]))-7
-    to <- as.Date(index(transactionsInstrument[i+1,1]))+7
-    daterange_check <- c(daterange_check, paste(from, "::", to, sep = ""))
-  }
-  for (daterange_check_i in daterange_check){
-    print(chart.Posn(portfolioname,Symbol=instrument,type='candlesticks', theme=myTheme,subset=daterange_check_i,TA=addEMAString))
-  }
-}
-```
-
-
-### Analysis
-
-### Returns
 
 #### Historical VaR
 
