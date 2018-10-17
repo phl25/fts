@@ -372,6 +372,11 @@ for (instrument in instrumentlist){
 The following table summarizes some important trading statistics for all instruments.
 
 ```{r message=FALSE}
+library(PerformanceAnalytics) # contains lots of methods to investigate performance
+# obtain the portfolio returns - with these you can compute virtually any financial metrics you wish
+rets <- PortfReturns(Account=accountname) 
+rownames(rets) <- NULL # this step is important!
+
 tstats <- tradeStats(Portfolio=portfolioname, Symbols=instrumentlist)
 for (i in 1:nrow(tstats)) {
   trades.tab <- cbind(
@@ -399,13 +404,6 @@ print(somestats)
 ```
 
 ### Step 6: Visualize returns of the trading strategy
-
-```{r message=FALSE, results="hide"}
-library(PerformanceAnalytics) # contains lots of methods to investigate performance
-# obtain the portfolio returns - with these you can compute virtually any financial metrics you wish
-rets <- PortfReturns(Account=accountname) 
-rownames(rets) <- NULL # this step is important!
-```
 
 ```{r message=FALSE}
 charts.PerformanceSummary(rets,colorset=rainbow12equal,main=instrumentlist)
