@@ -47,7 +47,7 @@ startCapital <- 1e+6
 transactionCost <- -20
 daterange <- '2013::2018' 
 emaPeriod <- 200
-maxHoldingPeriod <- 20
+maxHoldingPeriod <- 7
 
 InstrumentDirectory <- "~/Desktop/R/DownloadedData/"
 instrumentlist <- c("SAP.csv","DBK.csv")
