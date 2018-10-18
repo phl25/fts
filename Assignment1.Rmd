@@ -47,7 +47,7 @@ The variables set in the next section can be adjusted to test the strategy with 
 # Set values:
 startCapital <- 1e+6
 transactionCost <- -20
-daterange <- '2013::2018' 
+daterange <- '2016::2018' 
 emaPeriod <- 200
 maxHoldingPeriod <- 7
 
@@ -403,10 +403,13 @@ print(somestats)
 }
 ```
 
-### Step 6: Visualize returns of the trading strategy
+### Step 6: Visualize returns of the trading strategy for every instrument
 
 ```{r message=FALSE}
-charts.PerformanceSummary(rets,colorset=rainbow12equal,main=instrumentlist)
+for (i in 1:length(instrumentlist)){
+  
+  print(charts.PerformanceSummary(rets[,i],colorset=rainbow12equal,main=instrumentlist[i]))
+}
 ```
 
 ## Compare with Buy and Hold Strategy
@@ -484,8 +487,43 @@ chart.RiskReturnScatter(returns,Rf=0,add.sharpe=c(1,2),xlim=c(0,0.25),main="Retu
 chart.RelativePerformance(returns[,1],returns[,2],colorset=c("red","blue"),lwd=2,legend.loc="topleft")
 ```
 
-#### Historical VaR
+## Calculations and visualizations based on returns
+The visualization of returns, equity curve, value at risk and some other measure which can be calculated based on the returns of the trading strategy, can be observed in the following graphs.
+
+```{r message=FALSE, results="hide"}
+for (i in 1:length(instrumentlist)){
+  print(plot(rets[,i], lwd = 1, main = paste("Returns of ", instrumentlist[i], sep="")))
+  equityCurve <- cumprod(1 + rets[,i])
+  print(plot(equityCurve, lwd = 1, main = paste("Equity curve of ", instrumentlist[i], sep="")))
+  print(hist(rets[,i],main="Histogram of Simple Returns",breaks=50))
+}
+```
+
+
+### Historical VaR
+
+```{r, message=FALSE}
+
+Investment <- 1000
+probs <- 0.01
+for (i in 1:length(instrumentlist)) {
+  quantile(rets[,i])
+  discreteRQ <- quantile(rets[,i],probs=probs)
+  loss <- Investment * discreteRQ
+  print(sprintf("A %s Euro investment in %s could lose with a probability of", Investment, instrumentlist[i], probs))
+  print(round(loss,2))
+}
+```
+
 
 #### Equity curve
+
+equitySimple <- cumprod(1 + rets)
+par(mfrow = c(1,1))
+plot(equitySimple, lwd = 1)
+
+equity.bh <- cumprod(1 + rets.bh)
+plot(equity.bh, lwd = 1)
+rm(equity.bh)
 
 # Conclusion and Suggestions
