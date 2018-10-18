@@ -13,18 +13,27 @@ knitr::opts_chunk$set(tidy.opts=list(width.cutoff=48),tidy=TRUE)
 
 # Introduction
 
-Blabla Blabla
+This report is written for the 1st assignment of the Financial Trading Systems course 2018 at the Bond University. During the first weeks we learned how to use the Blotter Framework in R to implement a trading strategy, backtest the strategy on a set of instruments (stock, futures, etc.) and visualize meaningful results which give insights about the strategy. Moreover, we learned how to compare the strategy to another alternative (e.g. a buy and hold strategy). The trading idea, implementation and analysis and results are summarized in the following report.
 
 # Trading Idea
+## Smash Day by Larry Williams
+The trading idea which is used for this report is based on the Smash Day strategy introduced by Larry Williams in his book "Long Term Secrets to short term trading" 2012. 
+The basic theoretical foundation is set by the concept of autocorrelation. There are two autocorrelation principles which can be empirically observed. The positive autocorrelation which describes the fact that if we observe an upward movement it is more likely to observe an upward movement in the future. The same is valid for a negative trend. However, the negative autocorreleation can be observed on short term time periods. We can expect a price to bounce up again after a sharp down movement and vice versa. 
+Larry William's Smash Day pattern is based on the observation of this autocorrelation behaviour. 
+A Smash Day pattern is initialized when we observe a close which is lower than the previous day's low. This looks like a breakout to the downside. If the very next day the price moves opposite the Smash Day and trades above the high of the Smash Day this is according to Williams a buy signal. 
+Williams explains this buy signal with a feeling of hurt felt by the public as a result of an unfulfilled breakout. The public would want to get back on track and the price responds with a reversal. 
+The exact opposite is true for a Sell setup. The Smash Day is set up when we observe a close above the previous day's high. The sell signal is initiated when the price reverses immidiately the next day and falls below the smash day's low.
 
-Explain here the traiding idea, where I found it. What the theoretical foundation is --> Long Term positive autocorreleation
---> Short term negative autocorreleation
+## Own variation of the Smash Day trading strategy
 
-Trade reverse patterns. When observing a fallback, trade to profit from the upward trend after the fallback. etc....
+In addition to the Smash Day pattern, I have incorporated another rule for the buy signal and 2 additional components for the sell signal.
+I want to make sure that I only enter long when we are observing a longlasting upward trend. In order to do this buy orders are only performed when the current price is above the exponential moving average of the last 200 days.
+After that the Smash Day pattern is checked.
+For the sell I incorporated two "harder" conditions before checking whether we observe a Smash Day (sell). The first is that a maximum holding period can be set in order to make sure that a position is not open for too long. The second sell case is when the price falls below the 200 day exponential moving average the position is liquidated. If both is not the case a check for the smash day pattern is performed. If we observe it, we sell the current position.
+
+These variations are incorporated to reduce the risk of falling prices. 
 
 # Implementation of the trading idea
-
-Short paragraph about what is needed for the implementation
 
 ## Part A: Initialization
 
@@ -405,10 +414,9 @@ print(somestats)
 
 ### Step 6: Visualize returns of the trading strategy for every instrument
 
-```{r message=FALSE}
+```{r message=FALSE, warning=FALSE, rsults="hide"}
 for (i in 1:length(instrumentlist)){
-  
-  print(charts.PerformanceSummary(rets[,i],colorset=rainbow12equal,main=instrumentlist[i]))
+  charts.PerformanceSummary(rets[,i],colorset=rainbow12equal,main=instrumentlist[i])
 }
 ```
 
@@ -490,7 +498,13 @@ chart.RelativePerformance(returns[,1],returns[,2],colorset=c("red","blue"),lwd=2
 ## Calculations and visualizations based on returns
 The visualization of returns, equity curve, value at risk and some other measure which can be calculated based on the returns of the trading strategy, can be observed in the following graphs.
 
-```{r message=FALSE, results="hide"}
+### Returns
+
+### Equity Curve
+
+### Value at Risk
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, results="hide"}
 for (i in 1:length(instrumentlist)){
   print(plot(rets[,i], lwd = 1, main = paste("Returns of ", instrumentlist[i], sep="")))
   equityCurve <- cumprod(1 + rets[,i])
@@ -499,12 +513,10 @@ for (i in 1:length(instrumentlist)){
 }
 ```
 
+### Value at Risk
+```{r echo=FALSE, message=FALSE, warning=FALSE}
 
-### Historical VaR
-
-```{r, message=FALSE}
-
-Investment <- 1000
+Investment <- 10000
 probs <- 0.01
 for (i in 1:length(instrumentlist)) {
   quantile(rets[,i])
@@ -514,16 +526,5 @@ for (i in 1:length(instrumentlist)) {
   print(round(loss,2))
 }
 ```
-
-
-#### Equity curve
-
-equitySimple <- cumprod(1 + rets)
-par(mfrow = c(1,1))
-plot(equitySimple, lwd = 1)
-
-equity.bh <- cumprod(1 + rets.bh)
-plot(equity.bh, lwd = 1)
-rm(equity.bh)
 
 # Conclusion and Suggestions
