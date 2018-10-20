@@ -8,7 +8,7 @@ output:
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(tidy.opts=list(width.cutoff=48),tidy=TRUE)
+knitr::opts_chunk$set(tidy.opts=list(width.cutoff=35),tidy=TRUE)
 ```
 
 # Introduction
@@ -38,7 +38,7 @@ These variations are incorporated to reduce the risk of falling prices.
 ## Part A: Initialization
 
 ### Step 1: General Setup
-We have to clear the environment and initialize the most important packages that we will use.
+The environment has to be cleared in order to ensure a reproducable setup. Moreover, the blotter library and the INF361Course library are loaded.
 
 ```{r message=FALSE}
 # Clear Environment
@@ -50,19 +50,24 @@ library(INFT361Course)
 ```
 
 ### Step 2: Setting the Variables
-The variables set in the next section can be adjusted to test the strategy with different parameters. 
+The variables set in the next section can be adjusted to test the strategy with different parameters. The critical variables which should be adjusted to test the strategy are:
+* daterange
+* emaPeriod
+* maxHoldingPeriod
+* instrumentlist
+* BuyHoldInstrument
 
 ```{r message=FALSE, results="hide"}
 # Set values:
 startCapital <- 1e+6
 transactionCost <- -20
-daterange <- '2016::2018' 
+daterange <- '2010::2014' 
 emaPeriod <- 200
-maxHoldingPeriod <- 7
+maxHoldingPeriod <- 20
 
 InstrumentDirectory <- "~/Desktop/R/DownloadedData/"
-instrumentlist <- c("SAP.csv","DBK.csv")
-BuyHoldDirectory <- InstrumentDirectory
+instrumentlist <- c("SAP.csv","DBK.csv", "HEI.csv")
+BuyHoldDirectory <- "~/Desktop/R/DownloadedData/"
 BuyHoldInstrument <- "DAXEX.csv"
 
 currency("EUR")
@@ -75,6 +80,7 @@ accountname <- portfolioname
 ```
 
 ### Step 3: Presetup for plotting graphs
+Some setup for plotting the graphs in the visualization is performed here to ensure that the Theme is available later, when it is needed and used.
 
 ```{r message=FALSE, echo=TRUE}  
 # Settings for graph
@@ -90,25 +96,34 @@ addEMAString <- paste("add_EMA(n=",emaPeriod,")",sep = "")
 ```
 
 
-### Step 3: Initializing the portfolio
-The portfolio takes the instrumentlist which includes all the stocks we defined in Step 2.
+### Step 4: Initializing the portfolio
+The portfolio takes the instrumentlist which includes all the stocks we defined in Step 2. 
 
 ```{r message=FALSE, results="hide"}
 # Clear portfolio and Account
-suppressWarnings(rm("account.Smash Day","portfolio.Smash Day","account.buyhold","portfolio.buyhold",pos=.blotter))
+suppressWarnings(rm("account.Smash Day","portfolio.Smash Day",
+                    "account.buyhold","portfolio.buyhold",
+                    pos=.blotter))
 
 # Initialize Portfolio and Account
-initPortf(portfolioname,instrumentlist,initDate=initdate,currency="EUR")
-initAcct(accountname,portfolios=portfolioname,initDate=initdate,initEq=startCapital,currency="EUR")
+initPortf(portfolioname,
+          instrumentlist,
+          initDate=initdate,
+          currency="EUR")
+
+initAcct(accountname,
+         portfolios=portfolioname,
+         initDate=initdate,
+         initEq=startCapital,
+         currency="EUR")
 ```
 
 
 ## Part B: Bar by bar processing
 ### Step 1: Go through the data bar by bar
-Loading the instrument, initializing it and adding the ema to the data. After that we go through the available data bar by bar and apply the buy and sell rules which are defined in the following part.
+In this step the bar by bar processing is implemented. Thus, a for loop is implemented to loop through the instrumentlist. For each instrument in the list the data is loaded and the exponential moving average is added to the data. Furthermore, another for loop is used to loop through the dates bar by bar. In this step the defined strategy is applied.
 
 ```{r message=FALSE, results="hide"}
-# Go through the instrumentlist and perform the activities for all instruments in that list.
 for (instrument in instrumentlist) {
     LoadCourseFile(InstrumentDirectory, instrument, debugme = TRUE, dates = daterange)
     
@@ -154,24 +169,29 @@ for (instrument in instrumentlist) {
     if (Position == 0) {
       # Start checking BUY rules
       
-      # Check whether we have a Smash Day (Long).
-      # Smash Day (Long) is when Todays Close is below Yesterdays Low.
+      # Check whether we have a Smash Day (Buy).
+      # Smash Day (Buy) is when Todays Close is below Yesterdays Low.
       if (CloseToday < LowYesterday) {
-        # Smash Day (Long)
+        # Smash Day (Buy)
         
         #Check whether todays close is above today's EMA
         if (CloseToday > EMA_today) {
           
-          # BUY RULE: If today was a smash day place a STOP BUY order at todays high price. 
+          # BUY RULE: If today was a smash day place a STOP BUY order 
+          # at todays high price for the next day. 
           # (Buy tomorrow for 'price >= todays high')
           
+          ######
           # Simulate STOP BUY order:
+          ######
           
-          # Option 1 to check: Check whether the open price tomorrow is above today's high 
-          # and add the transaction tomorrow at tomorrows open price.
+          # Option 1 to check: Check whether the open price tomorrow 
+          # is above today's high and add the transaction tomorrow at
+          # tomorrow's open price.
           
-          # Option 2 to check: Check whether today's high was lower than tomorrows high 
-          # and add the transaction tomorrow at today's high price.
+          # Option 2 to check: Check whether today's high was lower 
+          # than tomorrows high and add the transaction tomorrow 
+          # at today's high price 
           
           # Check Option 1
           if (OpenTomorrow > HighToday) {
@@ -221,14 +241,17 @@ for (instrument in instrumentlist) {
       # Check the sell rules in the following order and sell at the 
       # first condition which is satisfied.
       
-      # Sell rules:
+      #####
+      # SELL rules:
+      #####
+      
       # Rule 1: Sell if we hold the position longer than the specified 
       # maximum holding period
       
       # Rule 2: Sell at tomorrow's opening price if the close price 
       # today falls below the EMA
       
-      # Rule 3: Sell if we meet the Smash Day (Short) requirements. 
+      # Rule 3: Sell if we meet the Smash Day (Sell) requirements. 
       # Today's close must be higher than yesterday's high
       
       # Rule 4: If no sell rule can be applied and we reach the 
@@ -262,18 +285,18 @@ for (instrument in instrumentlist) {
         } else {
           # Check Rule 3:
           
-          # Sell Rule 3: If today was a smash day (short) place an order at todays 
-          # low price. (Buy tomorrow for 'price <= todays low')
+          # Sell Rule 3: If today is a Smash Day (Sell) place an order tomorrow at todays 
+          # low price.
           
           # Simulate this behaviour:
           
           # Option 1 to check: Check whether the open price tomorrow is below today's 
-          # low and add the transaction tomorrow at tomorrows open price.
+          # low and add the transaction tomorrow at tomorrow's open price.
           
           # Option 2 to check: Check whether today's low was larger than tomorrow's 
           # low and add the transaction tomorrow at today's low price.
           
-          # Check for Smash Day (Short)
+          # Check for Smash Day (Sell)
           if (CloseToday > HighYesterday) {
             # Check for Option 1
             if (OpenTomorrow < LowToday) {
@@ -328,20 +351,30 @@ for (instrument in instrumentlist) {
 ```
 
 ### Step 2: System Check
-In order to make sure that the system works as designed the plots of some choosen transactions are printed in the following.
+In order to make sure that the system works as designed the plots of some choosen transactions are printed in the following. The plots for the first, third and the 5th last trasnaction are plotted for every instrument in the instrumentlist. The plots can be checked manually and by this it can be ensured that the transactions were performed as expected.
 
 ```{r echo=TRUE, message=FALSE, warning=FALSE, results="hide"}
+# Loop through all instruments in the instrumentlist
 for (instrument in instrumentlist){
   rm(daterange_check)
   daterange_check <- c()
   transactionsInstrument <- getTxns(Portfolio=portfolioname,Symbol=instrument)
-  for (i in c(2,6, (nrow(transactionsInstrument)-7), (nrow(transactionsInstrument)-5))) {
+  
+  # Create a list of transactions to check 
+  for (i in 
+       c(2,6, (nrow(transactionsInstrument)-7),(nrow(transactionsInstrument)-5))) {
     from <- as.Date(index(transactionsInstrument[i,1]))-7
     to <- as.Date(index(transactionsInstrument[i+1,1]))+7
     daterange_check <- c(daterange_check, paste(from, "::", to, sep = ""))
   }
+  # Plot the transactions and check them manually
   for (daterange_check_i in daterange_check){
-    print(chart.Posn(portfolioname,Symbol=instrument,type='candlesticks', theme=myTheme,subset=daterange_check_i,TA=addEMAString))
+    print(chart.Posn(portfolioname,
+                     Symbol=instrument,
+                     type='candlesticks',
+                     theme=myTheme,
+                     subset=daterange_check_i,
+                     TA=addEMAString))
   }
 }
 ```
@@ -349,88 +382,126 @@ for (instrument in instrumentlist){
 ## Part C: Analysis and Reporting
 
 ### Step 1: Visualize original data
-Plot of the instrument with the EMA line which indicates the general trend of the stock exponentially smoothed for the last 200 days. Moreover, the tradevolume is added below the graph.
+Plot of the instrument with the EMA line which indicates the general trend of the stock exponentially smoothed for the last 200 days. Moreover, the tradevolume is added below the graph. This plots can be used to get a first impression of the long term trend of the instrument and to see which general behaviour of the price can be observed 
 
-```{r message=FALSE, echo=FALSE}
+```{r message=FALSE}
 for (instrument in instrumentlist){
   chart <- get(instrument)
-  print(chart_Series(x=chart,name=instrument,theme=myTheme, subset=daterange,TA="add_TA((chart$EMA), on=1,type='l',col='blue');add_Vo()"))
+  print(chart_Series(x=chart,name=instrument,
+                     theme=myTheme, 
+                     subset=daterange,
+                     TA="add_TA((chart$EMA), on=1,type='l',col='blue')"))
 }
 ```
 
 ### Step 2: All transactions performed by the trading system
-The following table can be used to get a better overview of the transactions performed and the exact details per transaction. 
-```{r message=FALSE, echo=FALSE}
+The following table can be used to get a better overview of the transactions performed and the exact details like the quantity, price and value per transaction.
+```{r message=FALSE}
 for (instrument in instrumentlist){
-  print(instrument)
-  print(getTxns(Portfolio=portfolioname,Symbol=instrument))
+  print(sprintf("Transactions for the instrument: %s", instrument))
+  txns <- getTxns(Portfolio = portfolioname, Symbol = instrument)
+  txns.pr <- txns[,c(1,2,4,6)]
+  colnames(txns.pr) <- c("Quantity","Price","Value","Net realized Profit")
+  print(txns.pr)
+  writeLines("")
 }
 ```
 
-### Step 3: Graph which visualize the transactions
-The following graph shows the combined view of the performance of the Smash Day trading system. It visualizes the trades (buy-transactions are visualized in green and sell-transactions are visualized in red). Moreover, the size of the blue squares indicates the size of the position (height) and the holding duration of the position (width). The green line shows the cummulative net profit curve, while the red curve indicates the drawdown on each day compared to the last reached high.
+### Step 3: Graph which visualize transactions
+The following graphs show the combined view of the performance of the Smash Day trading system. It visualizes the trades (buy-transactions are visualized in green and sell-transactions are visualized in red). Moreover, the size of the blue squares indicates the size of the position (height) and the holding duration of the position (width). The green line shows the cummulative net profit curve, while the red line indicates the drawdown on each day compared to the last reached high.
 
-```{r message=FALSE, echo=FALSE}
+```{r message=FALSE}
 # Plot graph with indicators for transaction 
 for (instrument in instrumentlist){
-  chart.Posn(portfolioname,Symbol=instrument,type='candlesticks', theme=myTheme,subset=daterange,TA=addEMAString)
+  chart.Posn(portfolioname,
+             Symbol=instrument,
+             type='candlesticks', 
+             theme=myTheme,
+             subset=daterange,
+             TA=addEMAString)
 }
 ```
 
 ### Step 4: Performance Statistics
-The following table summarizes some important trading statistics for all instruments.
+The following table summarizes some important trading statistics for all instruments. This statistic is just an excerpt of the overall statistics which can be calculated. It is printed here as it can be assumed that they are interesting for investers to rate the trading strategy.
 
 ```{r message=FALSE}
-library(PerformanceAnalytics) # contains lots of methods to investigate performance
-# obtain the portfolio returns - with these you can compute virtually any financial metrics you wish
+library(PerformanceAnalytics)
+# Get returns for the account
 rets <- PortfReturns(Account=accountname) 
-rownames(rets) <- NULL # this step is important!
-
+rownames(rets) <- NULL
 tstats <- tradeStats(Portfolio=portfolioname, Symbols=instrumentlist)
 for (i in 1:nrow(tstats)) {
   trades.tab <- cbind(
     c("Trades", "Win Percent", "Loss Percent","W/L Ratio"),
-    c(tstats[i,"Num.Trades"],tstats[i,"Percent.Positive"],tstats[i,"Percent.Negative"],tstats[i,"Percent.Positive"]/tstats[i,"Percent.Negative"]))
+    c(tstats[i,"Num.Trades"],
+      round(tstats[i,"Percent.Positive"],2),
+      round(tstats[i,"Percent.Negative"],2),
+      round((tstats[i,"Percent.Positive"]/tstats[i,"Percent.Negative"]),2)))
+  trades1 <- trades.tab
+  rownames(trades1) <- c("Trades", 
+                         "Win Percent", 
+                         "Loss Percent", 
+                         "W/L Ratio")
+  trades1 <- trades1[,2]
   print(row.names(tstats[i,]))
-  print(trades.tab)
+  print(trades1)
+  writeLines("")
   }
 ```
 
 ### Step 5: Calculate statistics of the Portfolio and all instruments in the portfolio
 
-```{r message=FALSE}
-tab.perf <- table.Arbitrary(rets, metrics=c("Return.cumulative", "Return.annualized","SharpeRatio.annualized","CalmarRatio"),
-                            metricsNames=c("Cumulative Return", "Annualized Return", "Annualized Sharp Ratio","Calmar Ratio"))
-tab.risk <- table.Arbitrary(rets, metrics=c("StdDev.annualized", "maxDrawdown","VaR","ES"),
-                            metricsNames=c("Annualized StdDev", "Max Drawdown", "Value-at-Risk","Conditional VaR"))
-# present the portfolio statistics
-for (i in 1:ncol(tab.perf)) {
-somestats <- data.frame(rownames(tab.perf),tab.perf[i,1], rownames(tab.risk),tab.risk[i,1])
-colnames(rets[,i])
-colnames(somestats) <- c("Performance Metric", "Performance Value", "Risk Metric", "Risk Value")
-print(somestats)
-}
+```{r message=FALSE, echo=FALSE}
+tab.perf <- table.Arbitrary(rets, metrics=c("Return.cumulative",
+                                            "Return.annualized",
+                                            "SharpeRatio.annualized",
+                                            "CalmarRatio"),
+                            metricsNames=c("Cumulative Return", 
+                                           "Annualized Return", 
+                                           "Annualized Sharp Ratio",
+                                           "Calmar Ratio"))
+tab.risk <- table.Arbitrary(rets, metrics=c("StdDev.annualized",
+                                            "maxDrawdown",
+                                            "VaR",
+                                            "ES"),
+                            metricsNames=c("Annualized StdDev", 
+                                           "Max Drawdown",
+                                           "Value-at-Risk",
+                                           "Conditional VaR"),
+                            method=c("historical"))
+colnames(tab.perf) <- substr(colnames(tab.perf),1,3)
+colnames(tab.risk) <- substr(colnames(tab.risk),1,3)
+
+writeLines("Performance Metrics")
+tab.perf
+writeLines("Risk Metrics")
+tab.risk
 ```
 
 ### Step 6: Visualize returns of the trading strategy for every instrument
+The following plots visualizes some important information about the returns of the strategy applied to the instruments on the instrumentlist. The cummulative return over the entire period, the daily returns and the drawdown for each instrument is illustrated.
 
 ```{r message=FALSE, warning=FALSE, rsults="hide"}
-for (i in 1:length(instrumentlist)){
-  charts.PerformanceSummary(rets[,i],colorset=rainbow12equal,main=instrumentlist[i])
+for (i in 1:ncol(rets)){
+  charts.PerformanceSummary(rets[,i],colorset=rainbow12equal,lwd=1,main=substr(colnames(rets[,i]),1,3))
 }
 ```
 
 ## Compare with Buy and Hold Strategy
 In order to compare the trading strategy properly we need to define a benchmark against which we can measure the results. In this case a simple buy and hold strategy is used. At the first date of the trading period we place a buy order and sell our position at the last day of the selected period.
-In order to do this we create a new Portfolio and a new Account.
+In order to do this we create a new Portfolio and a new Account. As stocks from the DAX (German Stocks Market Index) are used in the strategy, the buy and hold strategy is performed on an DAX ETF.
 
 ### Step 1: Perform the Buy and Hold Strategy
 
 ```{r message=FALSE, results="hide"}
-  # We remove any objects, in case there was a buyhold portfolio initialized before
-  suppressWarnings(try(rm(list=c("account.buyhold","portfolio.buyhold"),pos=.blotter)))
+  # Any objects, in case there was a buyhold 
+  # portfolio initialized before are removed
+  suppressWarnings(try(rm(list=c("account.buyhold",
+                                 "portfolio.buyhold"),
+                          pos=.blotter)))
   
-  # The Buy and hold symbol is loaded 
+  # The Buy and hold instrument is loaded 
   LoadCourseFile(BuyHoldDirectory,BuyHoldInstrument,debugme=TRUE,dates=daterange)
   # The Buy and hold instrument is initialized
   stock(BuyHoldInstrument,currency="EUR")
@@ -438,8 +509,15 @@ In order to do this we create a new Portfolio and a new Account.
   BuyHoldSymbol<-get(BuyHoldInstrument)
   
   # The portfolio and account "buyhold" is initialized
-  initPortf("buyhold",BuyHoldInstrument,initDate=initdate,currency="EUR")
-  initAcct("buyhold",portfolios="buyhold",initDate=initdate,initEq=startCapital,currency="EUR")
+  initPortf("buyhold",
+            BuyHoldInstrument,
+            initDate=initdate,
+            currency="EUR")
+  initAcct("buyhold",
+           portfolios="buyhold",
+           initDate=initdate,
+           initEq=startCapital,
+           currency="EUR")
   
   # The first date of the defined daterange is selected
   currentdate <- first(time(BuyHoldSymbol))
@@ -451,7 +529,12 @@ In order to do this we create a new Portfolio and a new Account.
   unitsize <- as.numeric(trunc(startCapital/closeprice))
   
   # Place the transaction for the instrument at the first date
-  addTxn("buyhold",Symbol=BuyHoldInstrument,TxnDate=currentdate,TxnPrice=closeprice,TxnQty=unitsize,TxnFees=transactionCost)
+  addTxn("buyhold",
+         Symbol=BuyHoldInstrument,
+         TxnDate=currentdate,
+         TxnPrice=closeprice,
+         TxnQty=unitsize,
+         TxnFees=transactionCost)
   
   # Select the last date of the daterange period
   lastdate <-last(time(BuyHoldSymbol))
@@ -460,7 +543,12 @@ In order to do this we create a new Portfolio and a new Account.
   lastprice <- as.numeric(Cl(BuyHoldSymbol[lastdate,]))
   
   # Sell the position at the last date of the daterange
-  addTxn("buyhold",Symbol=BuyHoldInstrument,TxnDate=lastdate,TxnPrice=lastprice,TxnQty=-unitsize,TxnFees=transactionCost)
+  addTxn("buyhold",
+         Symbol=BuyHoldInstrument,
+         TxnDate=lastdate,
+         TxnPrice=lastprice,
+         TxnQty=-unitsize,
+         TxnFees=transactionCost)
   
   # update portfolio and account
   updatePortf(Portfolio="buyhold")
@@ -476,54 +564,78 @@ We can see that we hold the position from the first until the last date. The cum
 ```
 
 ### Step 3: Compare the returns of the trading strategy with the buy and hold strategy
-In order to compare the results of both strategies we calculat the returns for the buy and hold strategy and combine them with the returns of the trading strategy which were calculatet before.
+In order to compare the results of both strategies, we calculat the returns for the buy and hold strategy and combine them with the returns of the trading strategy which were calculated before.
 
 ```{r message=FALSE, results="hide"}
 rets.bh <- PortfReturns(Account='buyhold')
 returns <- cbind(rets,rets.bh)
-#rulecol <- paste(portfolioname,instrument,sep="-")
-#colnames(returns) <- c(rulecol,"Buy-and-hold")
+colnames(returns) <- substr(colnames(returns),1,3)
 ```
 
-We compare the two strategies by showing some statistical metrics of the returns and plot the returns in one chart to directly compare the performance of the strategies.
+In order to compare the performance between the strategy investment in one of the stocks and the alternative buy and hold strategy of the DAX ETF, the following graphs visualize the relative performance between each of the stocks used and the DAX ETF.
 
 ```{r message=FALSE}
 table.Stats(returns)
 table.AnnualizedReturns(returns)
-charts.PerformanceSummary(returns,geometric=FALSE,wealth.index=TRUE)
-chart.RiskReturnScatter(returns,Rf=0,add.sharpe=c(1,2),xlim=c(0,0.25),main="Return versus Risk",colorset = c("red","blue"))
-chart.RelativePerformance(returns[,1],returns[,2],colorset=c("red","blue"),lwd=2,legend.loc="topleft")
+# charts.PerformanceSummary(returns,geometric=FALSE,wealth.index=TRUE)
+chart.RiskReturnScatter(returns,Rf=0,
+                        add.sharpe=c(1,2),
+                        xlim=c(0,0.25),
+                        main="Return versus Risk"
+                        )
+
+for (i in colnames(returns[,-which(names(returns) == "DAX")])){
+  
+  print(chart.RelativePerformance(returns[,i],returns[,"DAX"],
+                          colorset=c("red","blue"),
+                          lwd=1,
+                          legend.loc="topleft"))
+}
 ```
 
 ## Calculations and visualizations based on returns
 The visualization of returns, equity curve, value at risk and some other measure which can be calculated based on the returns of the trading strategy, can be observed in the following graphs.
 
-### Returns
-
-### Equity Curve
-
-### Value at Risk
+### Returns and Equity Curve
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE, results="hide"}
 for (i in 1:length(instrumentlist)){
-  print(plot(rets[,i], lwd = 1, main = paste("Returns of ", instrumentlist[i], sep="")))
+  # Plot the Returns of each instrument
+  print(plot(rets[,i], lwd = 1, main = paste("Returns of ", substr(colnames(rets[,i]),1,3), sep="")))
+  
+  # Plot the equity curve of each instrument
   equityCurve <- cumprod(1 + rets[,i])
-  print(plot(equityCurve, lwd = 1, main = paste("Equity curve of ", instrumentlist[i], sep="")))
-  print(hist(rets[,i],main="Histogram of Simple Returns",breaks=50))
+  print(plot(equityCurve, lwd = 1, main = paste("Equity curve of ", substr(colnames(rets[,i]),1,3), sep="")))
+  
+  # Plot the Histogram of the returns to see the return distribution and compare with a random distribution.
+  set.seed(123)
+  random_dist <- rnorm(length(rets[,i]),mean=mean(rets[,i]),sd=sd(rets[,i]))
+  # make them into an "index-matching" time series - just for plotting
+  random_dist_stats <- xts(random_dist,index(rets))
+  
+  random_dist_stats_density <- density(random_dist_stats)
+  hist(rets[,i],probability=TRUE,breaks=100,main=paste("Histogram of Simple Returns of ",substr(colnames(rets[,i]),1,3), sep = ""), ylim = c(0,100))
+  points(random_dist_stats_density,type="l")
 }
 ```
 
 ### Value at Risk
+The historical "Value at Risk" measures the risk of loss for investments. More specifically, it describes the maximum amount we would expect to lose per day with a confidencelevel of 99%, given an investment of 10000.
+
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
 
 Investment <- 10000
 probs <- 0.01
+print(sprintf("Investment: %s", Investment))
+writeLines("")
+print(sprintf("Confidence Level: %s", (1-probs)))
+writeLines("")
+      
 for (i in 1:length(instrumentlist)) {
   quantile(rets[,i])
-  discreteRQ <- quantile(rets[,i],probs=probs)
+  (discreteRQ <- quantile(rets[,i],probs=probs))
   loss <- Investment * discreteRQ
-  print(sprintf("A %s Euro investment in %s could lose with a probability of", Investment, instrumentlist[i], probs))
-  print(round(loss,2))
+  print(sprintf("Given a %s investment in %s we would expect a maximum loss of %s per day.", Investment, substr(colnames(rets[,i]),1,3), round(loss,2)*-1))
 }
 ```
 
