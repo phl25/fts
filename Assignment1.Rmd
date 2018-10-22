@@ -61,7 +61,7 @@ The variables set in the next section can be adjusted to test the strategy with 
 # Set values:
 startCapital <- 1e+6
 transactionCost <- -20
-daterange <- '2010::2018' 
+daterange <- '2015::2018' 
 emaPeriod <- 400
 maxHoldingPeriod <- 4
 
@@ -490,13 +490,13 @@ for (i in 1:ncol(rets)){
 
 ### Step 7: Could we have performed better or even worse? MAE / MFE
 
-The efficiency of a strategy is also dependent on the question whether we could have performed better or worse. This can be shown with the maximum adverse excursion and the maximum favorable excursion. The Maximum Adverse excursion shows how much we could have lost at most during the trade, while the maximum favorable excursion shows how much we could have earn more than we did. 
+The efficiency of a strategy is also dependent on the question whether we could have performed better or worse. This can be shown with the maximum adverse excursion and the maximum favorable excursion. The Maximum Adverse excursion shows how much we could have lost at most during the trade, while the maximum favorable excursion shows how much we could have earned more than we did. 
 
 #### MAE
 
 ```{r message=FALSE, warning=FALSE, rsults="hide"}
 for (instrument in instrumentlist){
-  plot(chart.ME(portfolioname, instrument, type="MAE", scale="percent"))
+  chart.ME(portfolioname, instrument, type="MAE", scale="percent")
 }
 ```
 
@@ -504,7 +504,7 @@ for (instrument in instrumentlist){
 
 ```{r message=FALSE, warning=FALSE, rsults="hide"}
 for (instrument in instrumentlist){
-  plot(chart.ME(portfolioname, instrument, type="MFE", scale="percent"))
+  chart.ME(portfolioname, instrument, type="MFE", scale="percent")
 }
 ```
 
