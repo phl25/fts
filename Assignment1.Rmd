@@ -61,7 +61,7 @@ The variables set in the next section can be adjusted to test the strategy with 
 # Set values:
 startCapital <- 1e+6
 transactionCost <- -20
-daterange <- '2015::2018' 
+daterange <- '2000::2018' 
 emaPeriod <- 400
 maxHoldingPeriod <- 4
 
