@@ -61,12 +61,12 @@ The variables set in the next section can be adjusted to test the strategy with 
 # Set values:
 startCapital <- 1e+6
 transactionCost <- -20
-daterange <- '2010::2014' 
-emaPeriod <- 200
-maxHoldingPeriod <- 20
+daterange <- '2010::2018' 
+emaPeriod <- 400
+maxHoldingPeriod <- 4
 
 InstrumentDirectory <- "~/Desktop/R/DownloadedData/"
-instrumentlist <- c("SAP.csv","DBK.csv", "HEI.csv")
+instrumentlist <- c("ADS.csv","ALV.csv", "BAS.csv", "BAY.csv", "BEI.csv")
 BuyHoldDirectory <- "~/Desktop/R/DownloadedData/"
 BuyHoldInstrument <- "DAXEX.csv"
 
@@ -580,7 +580,7 @@ table.AnnualizedReturns(returns)
 # charts.PerformanceSummary(returns,geometric=FALSE,wealth.index=TRUE)
 chart.RiskReturnScatter(returns,Rf=0,
                         add.sharpe=c(1,2),
-                        xlim=c(0,0.25),
+                        xlim=c(0,0.35),
                         main="Return versus Risk"
                         )
 
