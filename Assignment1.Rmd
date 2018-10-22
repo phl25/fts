@@ -63,10 +63,10 @@ startCapital <- 1e+6
 transactionCost <- -20
 daterange <- '2010::2018' 
 emaPeriod <- 400
-maxHoldingPeriod <- 6
+maxHoldingPeriod <- 4
 
 InstrumentDirectory <- "~/Desktop/R/DownloadedData/"
-instrumentlist <- c("ADS.csv","ALV.csv", "BAS.csv", "BAY.csv", "BEI.csv")
+instrumentlist <- c("BMW.csv","DAI.csv", "DTE.csv", "FME.csv", "FRE.csv")
 BuyHoldDirectory <- "~/Desktop/R/DownloadedData/"
 BuyHoldInstrument <- "DAXEX.csv"
 
