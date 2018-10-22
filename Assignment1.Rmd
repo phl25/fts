@@ -65,9 +65,9 @@ daterange <- '2000::2018'
 emaPeriod <- 400
 maxHoldingPeriod <- 4
 
-InstrumentDirectory <- "~/Desktop/R/DownloadedData/"
-instrumentlist <- c("BMW.csv","DAI.csv", "DTE.csv", "FME.csv", "FRE.csv")
-BuyHoldDirectory <- "~/Desktop/R/DownloadedData/"
+InstrumentDirectory <- "~/Desktop/R/DownloadedData/DAX/"
+instrumentlist <- c("CON.csv","DB1.csv", "IFX.csv", "MRK.csv", "WDI.csv")
+BuyHoldDirectory <- "~/Desktop/R/DownloadedData/DAX/"
 BuyHoldInstrument <- "DAXEX.csv"
 
 currency("EUR")
