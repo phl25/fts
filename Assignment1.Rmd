@@ -488,6 +488,26 @@ for (i in 1:ncol(rets)){
 }
 ```
 
+### Step 7: Could we have performed better or even worse? MAE / MFE
+
+The efficiency of a strategy is also dependent on the question whether we could have performed better or worse. This can be shown with the maximum adverse excursion and the maximum favorable excursion. The Maximum Adverse excursion shows how much we could have lost at most during the trade, while the maximum favorable excursion shows how much we could have earn more than we did. 
+
+#### MAE
+
+```{r message=FALSE, warning=FALSE, rsults="hide"}
+for (instrument in instrumentlist){
+  plot(chart.ME(portfolioname, instrument, type="MAE", scale="percent"))
+}
+```
+
+#### MFE
+
+```{r message=FALSE, warning=FALSE, rsults="hide"}
+for (instrument in instrumentlist){
+  plot(chart.ME(portfolioname, instrument, type="MFE", scale="percent"))
+}
+```
+
 ## Compare with Buy and Hold Strategy
 In order to compare the trading strategy properly we need to define a benchmark against which we can measure the results. In this case a simple buy and hold strategy is used. At the first date of the trading period we place a buy order and sell our position at the last day of the selected period.
 In order to do this we create a new Portfolio and a new Account. As stocks from the DAX (German Stocks Market Index) are used in the strategy, the buy and hold strategy is performed on an DAX ETF.
