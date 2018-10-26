@@ -13,32 +13,31 @@ knitr::opts_chunk$set(tidy.opts=list(width.cutoff=35),tidy=TRUE)
 
 # Introduction
 
-This report is written for the 1st assignment of the Financial Trading Systems course 2018 at the Bond University. During the first weeks we learned how to use the Blotter Framework in R to implement a trading strategy, backtest the strategy on a set of instruments (stock, futures, etc.) and visualize meaningful results which give insights about the strategy. Moreover, we learned how to compare the strategy to another alternative (e.g. a buy and hold strategy). The trading idea, implementation and analysis and results are summarized in the following report.
+This report is written for the 1st assignment of the Financial Trading Systems course 2018 at the Bond University. During the first weeks, we learned how to use the Blotter Framework in R to implement a trading strategy, backtest the approach on a set of instruments (stock, futures, etc.) and visualize meaningful results which give insights about the strategy. Moreover, we learned how to compare the strategy to another alternative investment (e.g., a buy and hold strategy). The results of the assignment, the chosen trading idea, implementation, analysis and results are summarized in the following report.
 
 # Trading Idea
 ## Smash Day by Larry Williams
-The trading idea which is used for this report is based on the Smash Day strategy introduced by Larry Williams in his book "Long Term Secrets to short term trading" 2012. 
-The basic theoretical foundation is set by the concept of autocorrelation. There are two autocorrelation principles which can be empirically observed. The positive autocorrelation which describes the fact that if we observe an upward movement it is more likely to observe an upward movement in the future. The same is valid for a negative trend. However, the negative autocorreleation can be observed on short term time periods. We can expect a price to bounce up again after a sharp down movement and vice versa. 
-Larry William's Smash Day pattern is based on the observation of this autocorrelation behaviour. 
-A Smash Day pattern is initialized when we observe a close which is lower than the previous day's low. This looks like a breakout to the downside. If the very next day the price moves opposite the Smash Day and trades above the high of the Smash Day this is according to Williams a buy signal. 
-Williams explains this buy signal with a feeling of hurt felt by the public as a result of an unfulfilled breakout. The public would want to get back on track and the price responds with a reversal. 
-The exact opposite is true for a Sell setup. The Smash Day is set up when we observe a close above the previous day's high. The sell signal is initiated when the price reverses immidiately the next day and falls below the smash day's low.
+The trading idea which is used for this report is based on the Smash Day strategy introduced by Larry Williams in his book "Long-Term Secrets to short-term trading" 2012. 
+The basic theoretical foundation is set by the concept of autocorrelation. There are two autocorrelation principles which can be empirically observed. The positive autocorrelation which describes the fact that if we see an upward movement, it is more likely to observe an upward movement in the future. The same is valid for a negative trend. However, the negative autocorrelation can be observed on short-term time periods. We can expect a price to bounce up again after a sharp down movement and vice versa. 
+Larry William's Smash Day pattern is based on the observation of this autocorrelation behavior. 
+A Smash Day pattern is initialized when we observe a closing price which is lower than the previous day's low price. This pattern looks like a breakout to the downside. If the very next day the price moves opposite the Smash Day and trades above the high of the Smash Day this is according to Williams a buy signal. 
+Williams explains this buy signal with a feeling of hurt felt by the public as a result of an unfulfilled breakout. The public would want to get back on track, and the price responds with a reversal. 
+The exact opposite is true for a Sell Setup. The Smash Day is set up when we observe a close above the previous day's high. The sell signal is initiated when the price reverses immediately the next day and falls below the smash day's low.
 
 ## Own variation of the Smash Day trading strategy
 
-In addition to the Smash Day pattern, I have incorporated another rule for the buy signal and 2 additional components for the sell signal.
-I want to make sure that I only enter long when we are observing a longlasting upward trend. In order to do this buy orders are only performed when the current price is above the exponential moving average of the last 200 days.
-After that the Smash Day pattern is checked.
-For the sell I incorporated two "harder" conditions before checking whether we observe a Smash Day (sell). The first is that a maximum holding period can be set in order to make sure that a position is not open for too long. The second sell case is when the price falls below the 200 day exponential moving average the position is liquidated. If both is not the case a check for the smash day pattern is performed. If we observe it, we sell the current position.
+In addition to the Smash Day pattern, I have incorporated another rule for the buy signal and two additional components for the sell signal.
+I want to make sure that I only enter long when we observe a longlasting upward trend. To do this, buy orders are only executed when the current price is above the exponential moving average of the last 400 days. After that, the Smash Day pattern is checked.
+For the sell, I incorporated two more conditions before checking whether we see a Smash Day (Sell) pattern. The first is that a maximum holding period can be set to make sure that a position is not open for too long. The second sell case is when the price falls below the 400-day exponential moving average. If both conditions are not the matched a check for the smash day pattern is performed. If we observe it, we sell the current position.
 
-These variations are incorporated to reduce the risk of falling prices. 
+These variations are incorporated to reduce the risk of falling prices.
 
 # Implementation of the trading idea
 
 ## Part A: Initialization
 
 ### Step 1: General Setup
-The environment has to be cleared in order to ensure a reproducable setup. Moreover, the blotter library and the INF361Course library are loaded.
+The environment has to be cleared to ensure a reproducable setup. Moreover, the blotter library and the INF361Course library are loaded.
 
 ```{r message=FALSE}
 # Clear Environment
@@ -50,12 +49,7 @@ library(INFT361Course)
 ```
 
 ### Step 2: Setting the Variables
-The variables set in the next section can be adjusted to test the strategy with different parameters. The critical variables which should be adjusted to test the strategy are:
-* daterange
-* emaPeriod
-* maxHoldingPeriod
-* instrumentlist
-* BuyHoldInstrument
+The variables set in the next section can be adjusted to test the strategy with different parameters. The critical variables which should be adjusted to test the strategy are: daterange, emaPeriod, maxHoldingPeriod, instrumentlist and BuyHoldInstrument. 
 
 ```{r message=FALSE, results="hide"}
 # Set values:
@@ -66,7 +60,7 @@ emaPeriod <- 400
 maxHoldingPeriod <- 4
 
 InstrumentDirectory <- "~/Desktop/R/DownloadedData/DAX/"
-instrumentlist <- c("CON.csv","DB1.csv", "IFX.csv", "MRK.csv", "WDI.csv")
+instrumentlist <- c("CON.csv", "DB1.csv", "IFX.csv", "MRK.csv", "WDI.csv")
 BuyHoldDirectory <- "~/Desktop/R/DownloadedData/DAX/"
 BuyHoldInstrument <- "DAXEX.csv"
 
@@ -80,7 +74,7 @@ accountname <- portfolioname
 ```
 
 ### Step 3: Presetup for plotting graphs
-Some setup for plotting the graphs in the visualization is performed here to ensure that the Theme is available later, when it is needed and used.
+Theme setup for plotting the graphs in the visualization is performed here to ensure that the theme is available later, when it is needed and used.
 
 ```{r message=FALSE, echo=TRUE}  
 # Settings for graph
@@ -97,7 +91,7 @@ addEMAString <- paste("add_EMA(n=",emaPeriod,")",sep = "")
 
 
 ### Step 4: Initializing the portfolio
-The portfolio takes the instrumentlist which includes all the stocks we defined in Step 2. 
+The portfolio and account are initialized.
 
 ```{r message=FALSE, results="hide"}
 # Clear portfolio and Account
@@ -121,7 +115,7 @@ initAcct(accountname,
 
 ## Part B: Bar by bar processing
 ### Step 1: Go through the data bar by bar
-In this step the bar by bar processing is implemented. Thus, a for loop is implemented to loop through the instrumentlist. For each instrument in the list the data is loaded and the exponential moving average is added to the data. Furthermore, another for loop is used to loop through the dates bar by bar. In this step the defined strategy is applied.
+In this step the bar by bar processing is implemented. Therefore, a for loop is used to go through the instrumentlist. For each instrument in the list the data is loaded and the exponential moving average is added to the data. Furthermore, another for loop is used to go through the dates bar by bar. In this step the chosen strategy is applied.
 
 ```{r message=FALSE, results="hide"}
 for (instrument in instrumentlist) {
@@ -351,7 +345,7 @@ for (instrument in instrumentlist) {
 ```
 
 ### Step 2: System Check
-In order to make sure that the system works as designed the plots of some choosen transactions are printed in the following. The plots for the first, third and the 5th last trasnaction are plotted for every instrument in the instrumentlist. The plots can be checked manually and by this it can be ensured that the transactions were performed as expected.
+In order to make sure that the system works as designed, the plots of some choosen transactions are printed in the following section. The plots for the first, third and the 5th last trasnaction are plotted for every instrument in the instrumentlist. The plots can be checked manually and by this it can be ensured that the transactions were performed as expected.
 
 ```{r echo=TRUE, message=FALSE, warning=FALSE, results="hide"}
 # Loop through all instruments in the instrumentlist
@@ -379,10 +373,12 @@ for (instrument in instrumentlist){
 }
 ```
 
+The plots of the chosen transactions show that the system works as designed. As a variety of transactions is plotted across many different instruments, we observe all possible patterns. The buy orders are all performed correctly after observing a Smash Day pattern. The sell orders do work as expected. The maximum holding period is applied and sell orders are placed after a maximum holding period of 4 days. Price drops below the EMA line lead to a sell transaction and also the smash day pattern can be observed which leads to a sell transaction.
+
 ## Part C: Analysis and Reporting
 
 ### Step 1: Visualize original data
-Plot of the instrument with the EMA line which indicates the general trend of the stock exponentially smoothed for the last 200 days. Moreover, the tradevolume is added below the graph. This plots can be used to get a first impression of the long term trend of the instrument and to see which general behaviour of the price can be observed 
+The following section shows plots of the instruments with the EMA line which indicates the general trend of the stock exponentially smoothed for the last 400 days. This plots can be used to get a first impression of the long term trend of the instrument and to see which general behaviour of the price movement can be observed.
 
 ```{r message=FALSE}
 for (instrument in instrumentlist){
@@ -395,7 +391,8 @@ for (instrument in instrumentlist){
 ```
 
 ### Step 2: All transactions performed by the trading system
-The following table can be used to get a better overview of the transactions performed and the exact details like the quantity, price and value per transaction.
+The following table can be used to get a better overview of the transactions performed and the exact details like the quantity, price and value per transaction. The table can be used to compare certain trades, make sure that the trades were executed as expected and use it as a reference, when looking for trades of a specific instrument at a specific time.
+
 ```{r message=FALSE}
 for (instrument in instrumentlist){
   print(sprintf("Transactions for the instrument: %s", instrument))
@@ -407,8 +404,8 @@ for (instrument in instrumentlist){
 }
 ```
 
-### Step 3: Graph which visualize transactions
-The following graphs show the combined view of the performance of the Smash Day trading system. It visualizes the trades (buy-transactions are visualized in green and sell-transactions are visualized in red). Moreover, the size of the blue squares indicates the size of the position (height) and the holding duration of the position (width). The green line shows the cummulative net profit curve, while the red line indicates the drawdown on each day compared to the last reached high.
+### Step 3: Visualize all transactions, profit and drawdown
+The following graphs show the combined view of the performance of the Smash Day trading system. It visualizes the trades (buy-transactions are visualized in green and sell-transactions are visualized in red). Moreover, the size of the blue squares indicates the size of the position (height) and the holding duration of the position (width). The green line shows the cummulative net profit curve, while the red line indicates the drawdown on each day compared to the last reached high. The first look on the graph shows us, that trades are only performed above the EMA line. Moreover, we see the cumulative profit / loss and drawdowns. The time series can be used for further investigation of the strategy. 
 
 ```{r message=FALSE}
 # Plot graph with indicators for transaction 
@@ -423,7 +420,8 @@ for (instrument in instrumentlist){
 ```
 
 ### Step 4: Performance Statistics
-The following table summarizes some important trading statistics for all instruments. This statistic is just an excerpt of the overall statistics which can be calculated. It is printed here as it can be assumed that they are interesting for investers to rate the trading strategy.
+To analyze the results of our strategy appropriately we need to create some statistical measures which indicates how well the strategy performes.
+The following table summarizes some important trading statistics for all instruments. This statistic is just an excerpt of the available statistics which can be calculated and displayed. It is printed here as it can be assumed that they are interesting for investors to rate the trading strategy.
 
 ```{r message=FALSE}
 library(PerformanceAnalytics)
@@ -450,7 +448,8 @@ for (i in 1:nrow(tstats)) {
   }
 ```
 
-### Step 5: Calculate statistics of the Portfolio and all instruments in the portfolio
+### Step 5: Portfolio statistics for all instruments
+The following statistics are broken down for each instrument. The cumulative return, annualized return and the sharp ratio. Moreover, some risk metrics are also shown to make sure that both, the return and the risk can be evaluated.
 
 ```{r message=FALSE, echo=FALSE}
 tab.perf <- table.Arbitrary(rets, metrics=c("Return.cumulative",
@@ -480,17 +479,21 @@ tab.risk
 ```
 
 ### Step 6: Visualize returns of the trading strategy for every instrument
-The following plots visualizes some important information about the returns of the strategy applied to the instruments on the instrumentlist. The cummulative return over the entire period, the daily returns and the drawdown for each instrument is illustrated.
+After performing the strategy, we have full access to the returns for each and every instrument which was tested.
+The following plots vivualize the cumulative return, the daily return and the drawdone for each insturment. This allows a good first overview of the performance of the strategy for the instruments used.
 
 ```{r message=FALSE, warning=FALSE, rsults="hide"}
 for (i in 1:ncol(rets)){
-  charts.PerformanceSummary(rets[,i],colorset=rainbow12equal,lwd=1,main=substr(colnames(rets[,i]),1,3))
+  charts.PerformanceSummary(rets[,i],
+                            colorset=rainbow12equal,
+                            lwd=1,
+                            main=substr(colnames(rets[,i]),1,3))
 }
 ```
 
 ### Step 7: Could we have performed better or even worse? MAE / MFE
 
-The efficiency of a strategy is also dependent on the question whether we could have performed better or worse. This can be shown with the maximum adverse excursion and the maximum favorable excursion. The Maximum Adverse excursion shows how much we could have lost at most during the trade, while the maximum favorable excursion shows how much we could have earned more than we did. 
+The efficiency of a strategy is also dependent on the question whether we could have performed better or worse. This can be shown with the maximum adverse excursion and the maximum favorable excursion. The Maximum Adverse excursion shows how much we could have lost at most during the trade, while the maximum favorable excursion shows how much we could have earned more than we did. In the MFE case we want all trades to be as close to the diagonal line as possible. Every movement to the bottom right sight can be interpreted as a not realized opportunity to earn higher returns.
 
 #### MAE
 
@@ -509,8 +512,7 @@ for (instrument in instrumentlist){
 ```
 
 ## Compare with Buy and Hold Strategy
-In order to compare the trading strategy properly we need to define a benchmark against which we can measure the results. In this case a simple buy and hold strategy is used. At the first date of the trading period we place a buy order and sell our position at the last day of the selected period.
-In order to do this we create a new Portfolio and a new Account. As stocks from the DAX (German Stocks Market Index) are used in the strategy, the buy and hold strategy is performed on an DAX ETF.
+After having analyzed the strategy extensively, a comparison to another strategy should be made to evaluate the performance based on a benchmark which could have been an alternative investment. In this case a simple buy and hold strategy is used. At the first date of the trading period we place a buy order and sell our position at the last day of the selected period. In order to do this, we create a new Portfolio and a new Account. As stocks from the DAX (German Stocks Market Index) are used in the strategy, the buy and hold strategy is performed on an DAX ETF.
 
 ### Step 1: Perform the Buy and Hold Strategy
 
@@ -577,22 +579,31 @@ In order to do this we create a new Portfolio and a new Account. As stocks from 
 ```  
   
 ### Step 2: Visualize the Buy and Hold strategy
-We can see that we hold the position from the first until the last date. The cumulative profits are visualized by the green line.
+When visualizing the strategy in the same way we visualized the Smash Day strategy, we can see that we hold the position from the first until the last date. The cumulative profits are visualized by the green line.
 
 ```{r message=FALSE}
   chart.Posn("buyhold",Symbol=BuyHoldInstrument, theme=myTheme)
 ```
 
 ### Step 3: Compare the returns of the trading strategy with the buy and hold strategy
-In order to compare the results of both strategies, we calculat the returns for the buy and hold strategy and combine them with the returns of the trading strategy which were calculated before.
+In order to compare the results of both strategies, we calculat the returns for the buy and hold strategy and combine them with the returns of the trading strategy which were calculated before. Then the cummulative return, the daily return and the drawdown is plotted to visualize the performance of the buy and hold strategy.
 
 ```{r message=FALSE, results="hide"}
 rets.bh <- PortfReturns(Account='buyhold')
 returns <- cbind(rets,rets.bh)
 colnames(returns) <- substr(colnames(returns),1,3)
+charts.PerformanceSummary(rets.bh,
+                            colorset=rainbow12equal,
+                            lwd=1,
+                            main=substr(colnames(rets.bh),1,3))
 ```
 
-In order to compare the performance between the strategy investment in one of the stocks and the alternative buy and hold strategy of the DAX ETF, the following graphs visualize the relative performance between each of the stocks used and the DAX ETF.
+In order to compare the performance between the strategy investment in one of the stocks and the alternative buy and hold strategy of the DAX ETF, the following graphs visualize the relative performance between each of the stocks used and the DAX ETF. Before that, more statistics are printed. These statistics compare information about the returns of the five instruments and the buy and hold strategy. Furthermore, annualized statistics are provided for the returns, standard deviation and the sharpe ration. These information can be used in order to form first assumptions when comparing the strategies.
+
+The Return versus Risk Graph plots the five instruments and the DAX buy and hold instrument and visualizes the performance of the strategies versus the risk which was taken. This is the first visualization of a direct comparison of the strategies. 
+
+In order to better see the direct comparison of the instruments used and the alternative investment in the DAX ETF with a buy and hold strategy, relative performance plots are printed for each instrument and its relative performance compared to the DAX ETF.
+
 
 ```{r message=FALSE}
 table.Stats(returns)
@@ -614,22 +625,33 @@ for (i in colnames(returns[,-which(names(returns) == "DAX")])){
 ```
 
 ## Calculations and visualizations based on returns
-The visualization of returns, equity curve, value at risk and some other measure which can be calculated based on the returns of the trading strategy, can be observed in the following graphs.
+As we have the returns of the instruments available, we can perform calculations and visualizations based on the returns of the strategies.
+The following section contains graphs of the returns, the equity curve and a histrogram of the simple returns. 
+Moreover, the histogram graph has an overlay with a randomly created normal distribution in order to compare the distribution of the returns with a normal distribution. As expected the returns are not normally distributed. We can observe fat tails, wihch means that large negative and large positive returns can be observe more often than expected and the excess kurtosis is visible.
 
-### Returns and Equity Curve
+### Returns, Equity Curve and return distribution
 
-```{r echo=FALSE, message=FALSE, warning=FALSE, results="hide"}
+```{r message=FALSE, warning=FALSE, results="hide"}
 for (i in 1:length(instrumentlist)){
   # Plot the Returns of each instrument
-  print(plot(rets[,i], lwd = 1, main = paste("Returns of ", substr(colnames(rets[,i]),1,3), sep="")))
+  print(plot(rets[,i], lwd = 1, main = paste("Returns of ", 
+                                             substr(colnames(rets[,i]),1,3), 
+                                             sep="")))
   
   # Plot the equity curve of each instrument
   equityCurve <- cumprod(1 + rets[,i])
-  print(plot(equityCurve, lwd = 1, main = paste("Equity curve of ", substr(colnames(rets[,i]),1,3), sep="")))
+  print(plot(equityCurve, lwd = 1, 
+             main = paste("Equity curve of ", 
+                          substr(colnames(rets[,i]),1,3), 
+                          sep="")))
   
-  # Plot the Histogram of the returns to see the return distribution and compare with a random distribution.
+  # Plot the Histogram of the returns to see the return 
+  # distribution and compare with a random distribution.
   set.seed(123)
-  random_dist <- rnorm(length(rets[,i]),mean=mean(rets[,i]),sd=sd(rets[,i]))
+  random_dist <- rnorm(length(rets[,i]),
+                       mean=mean(rets[,i]),
+                       sd=sd(rets[,i]))
+  
   # make them into an "index-matching" time series - just for plotting
   random_dist_stats <- xts(random_dist,index(rets))
   
@@ -641,8 +663,9 @@ for (i in 1:length(instrumentlist)){
 
 ### Value at Risk
 The historical "Value at Risk" measures the risk of loss for investments. More specifically, it describes the maximum amount we would expect to lose per day with a confidencelevel of 99%, given an investment of 10000.
+This metric could be used to show potential investors the risk which is associated with their investment. Based on the following results, an investor could decide whether the risk is appropriate compared to the expected returns which were shown in the previous sections.
 
-```{r echo=FALSE, message=FALSE, warning=FALSE}
+```{r message=FALSE, warning=FALSE}
 
 Investment <- 10000
 probs <- 0.01
@@ -655,7 +678,10 @@ for (i in 1:length(instrumentlist)) {
   quantile(rets[,i])
   (discreteRQ <- quantile(rets[,i],probs=probs))
   loss <- Investment * discreteRQ
-  print(sprintf("Given a %s investment in %s we would expect a maximum loss of %s per day.", Investment, substr(colnames(rets[,i]),1,3), round(loss,2)*-1))
+  print(sprintf("Given a %s investment in %s we would expect a maximum loss of %s per day.", 
+                Investment, 
+                substr(colnames(rets[,i]),1,3), 
+                round(loss,2)*-1))
 }
 ```
 
