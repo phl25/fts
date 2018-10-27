@@ -1,7 +1,7 @@
 ---
 title: "Assignment 1"
 author: "Philipp Epstein"
-date: "10/14/2018"
+date: "10/27/2018"
 output:
   pdf_document: default
   html_document: default
@@ -544,6 +544,11 @@ After having analyzed the strategy extensively, a comparison to another strategy
   # The first date of the defined daterange is selected
   currentdate <- first(time(BuyHoldSymbol))
   
+  # Add 400 days, to start after the EMA period of the Smash Day 
+  # strategy was calculated to better compare the performance of the strategies.
+  currentdate = as.Date(currentdate)+400
+  
+  
   # The close price at this date is selected
   closeprice <- as.numeric(Cl(BuyHoldSymbol[currentdate,]))
   
@@ -624,6 +629,39 @@ for (i in colnames(returns[,-which(names(returns) == "DAX")])){
 }
 ```
 
+To compare the Smash Day strategy even better to the alternative buy and hold strategy, the following plots visualize the cummulative returns of the strategy including the performance of the DAX. Moreover, it can be used to compare the drawdown of the strategy and the DAX.
+
+```{r message=FALSE}
+
+returns.con <- returns[,c(1,6)]
+returns.db1 <- returns[,c(2,6)]
+returns.ifx <- returns[,c(3,6)]
+returns.mrk <- returns[,c(4,6)]
+returns.wdi <- returns[,c(5,6)]
+
+charts.PerformanceSummary(returns.con,
+                            colorset=rainbow12equal,
+                            lwd=1)
+
+charts.PerformanceSummary(returns.db1,
+                            colorset=rainbow12equal,
+                            lwd=1)
+
+charts.PerformanceSummary(returns.ifx,
+                            colorset=rainbow12equal,
+                            lwd=1)
+
+charts.PerformanceSummary(returns.mrk,
+                            colorset=rainbow12equal,
+                            lwd=1)
+
+charts.PerformanceSummary(returns.wdi,
+                            colorset=rainbow12equal,
+                            lwd=1)
+
+```
+
+
 ## Calculations and visualizations based on returns
 As we have the returns of the instruments available, we can perform calculations and visualizations based on the returns of the strategies.
 The following section contains graphs of the returns, the equity curve and a histrogram of the simple returns. 
@@ -686,3 +724,16 @@ for (i in 1:length(instrumentlist)) {
 ```
 
 # Conclusion and Suggestions
+
+Larry William's Smash Day strategy, as it was introduced in the first section, is based on the idea of the reversal. When talking about the reversal effect, the statistical foundation is the negative autocorrelation.
+The report guided the reader through all relevant stages of the process for implementing a trading strategy with the Blotter R Framework. 
+The chosen strategy performed quite well and annualized returns between -1 % and 8.2 %, which is quite impressive compared to the DAX which had an annualized return of 2.24 %. Moreover, the five used instruments have shown a much lower annualized risk than the DAX. Thus, this strategy performed for four out of the five tested instruments better than the DAX while having a lower risk than the DAX over the time horizon of the last 18 years. 
+The strategy is based on a 400 days exponential moving average. This is necessary to enter the market long only in long-term upward trends. This was tested before with a 200 days exponential moving average, which leads to worse performance. Thus, it seems to be important, that the upward trends are longlasting. 
+The implementation of the maximum holding period was also very crucial. After testing the strategy without this, large drawdowns were observed as the Smash Day Sell Signal was triggered way too late. Longer holding periods of 20 - 40 days haven't improved the performance, while shorter holding periods improved the performance significantly.
+Further improvements could include short trades which could be used during periods of down-trends, making the strategy even more flexible to react to different market situations. 
+We can see that four of the five tested instruments had a Trades Win / Lose Ration larger than 1 with approximately eight trades per year. 
+What can be seen from the simulation of the buy and hold strategy is, that the moment when to place the buy order is very crucial. The DAX lost from 2000 to 2003 about 60 %, which means that it is necessary to compare the two strategies wisely.
+In the last section of the report, the returns show classical significant characteristics like volatility clusters and the typical distribution with an excess kurtosis and fat tales. 
+
+Overall, I would suggest testing the strategy on more instruments across different markets to clarify whether there are other effects responsible for the positive returns. As the strategy is based on a behavioral bias, we can expect the strategy to work also in the future.
+
