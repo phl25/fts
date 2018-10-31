@@ -54,7 +54,7 @@ The variables set in the next section can be adjusted to test the strategy with 
 ```{r message=FALSE, results="hide"}
 # Set values:
 startCapital <- 1e+6
-transactionCost <- -20
+transactionCost <- -100
 daterange <- '2000::2018' 
 emaPeriod <- 400
 maxHoldingPeriod <- 4
