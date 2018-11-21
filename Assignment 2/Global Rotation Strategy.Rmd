@@ -1,0 +1,841 @@
+---
+title: "Global Rotation Strategy"
+author: "Philipp Epstein"
+output: pdf_document
+---
+# Introduction
+
+# Trading Idea
+
+For the design of a well performing rotation strategy, it is important that the selected ETFs are not too volatile, show longer-term visible trends and have a good market volume, so that they cannot be manipulated. They all should have more or less the same volatility. The 5 global markets ETFs fulfill this condition. They all are capitalized enough, so that they cannot be manipulated in the short term. They follow slightly different economic cycles and have long periods where one market outperforms the others until it becomes so overpriced and investors begin to remove their money from that market in order to invest in other cheaper valued markets.
+
+
+
+```{r, echo=FALSE}
+library(knitr)
+opts_chunk$set(tidy.opts=list(width.cutoff=48),tidy=TRUE)
+```
+
+##Pre-Step: Clear the environment.
+Clear the R environment.
+
+```{r}
+rm(list=ls()) # clear the workspace
+```
+# Implementation of the trading idea
+
+##Step 1: Initialization
+###Step 1a: Define Currency, Instruments, Time zone and other simulation parameters
+As well as Currency, Instruments and Time zone, you need to set starting and ending dates for the simulation, names for the portfolio and the account (often both are set to the strategy name), and the amount of starting capital
+
+```{r}
+library(quantstrat)
+currency("USD") 
+Sys.setenv(TZ="UTC")
+initdate <- '2002-12-31'
+startdate <- '2003-01-01'
+enddate <- '2018-12-31' 
+portfolioname <- "GRS" 
+accountname <- portfolioname
+strategyname <- portfolioname
+startingcapital <- 10000 
+txncost = -100
+
+buypositions <- 1
+roc.var <- 3
+
+```
+
+###Step 1b: Load data into R environment. Transform it to monthly data, use only Close prices and change the columnnames.
+
+```{r}
+library(INFT361Course)
+
+dir <- "~/Desktop/R/GRS/"
+
+symbollist <-GetCourseDirList(dir)
+#range of data for simulation
+daterange <- '2000::2018' 
+# obtain the data - use adjusted data
+LoadCourseDir(dir)
+
+for (symbol in symbollist) 
+  {
+    symname <- symbol
+    stock(symbollist,currency="USD")
+    # convert data to monthly
+    x<-get(symbol)
+    x=to.monthly(x,indexAt="startof",drop.time=FALSE, OHLC=TRUE) # needs "endof" and drop.time=FALSE
+    indexFormat(x) <- '%Y-%m-%d'
+    x <- x[,"x.Close"]
+    colnames(x)<-gsub("x.","",colnames(x)) # Change columnnames to Symbol.Open etc.
+    colnames(x) <- symbol
+
+    assign(symbol,x)
+}
+```
+
+### Step 1c: Merge all symbols together in order to perform the ranking of the ETFs. 
+
+```{r}
+symbols_close <- do.call(merge,lapply(symbollist,get))
+
+```
+
+### Step 1d: Calculate the ROC for the last n months for the used symbols and store it for ranking in new roc matrix.
+
+```{r}
+roc <- ROC(symbols_close, n=roc.var, type="discrete")
+roc <- na.omit(roc)
+```
+
+### Step 1e: Rank the ETFs based on their rate of change and store the ranks in new ranks matrix.
+
+```{r}
+ranks <- as.xts(t(apply(-roc,1,rank)))
+```
+
+### Step 1f: Create new matrix pos_rets for the ETFs which assigns a 0 to negative returns and a 1 to positive returns.
+
+```{r}
+pos_rets <- roc
+pos_rets[pos_rets<=0] <- 0
+pos_rets[pos_rets>0] <- 1
+```
+
+### Step 1g: Merge the created matrices together with the original data to have all data of the symbols available together with the created indicators (ranks and pos_rets).
+
+```{r}
+# Load all original files
+LoadCourseDir(dir)
+
+# Convert the symbols to monthly data
+for (symbol in symbollist) 
+{
+    symname <- symbol
+    stock(symbollist,currency="USD")
+    # convert data to monthly
+    x<-get(symbol)
+    x=to.monthly(x,indexAt="startof",drop.time=FALSE, OHLC=TRUE) # needs "endof" and drop.time=FALSE
+    indexFormat(x) <- '%Y-%m-%d'
+    colnames(x)<-gsub("x.","",colnames(x)) # Change columnnames to Symbol.Open etc.
+
+    assign(symbol,x)
+}
+
+# lag the ranks by one period as the calculations are based on the Close price of the month
+# so the rank is the indicator for the next month to perform the buy at the opening price
+ranks <- lag(ranks,k=1,na.pad=TRUE)
+ranks <- na.omit(ranks)
+
+# merge the ranks values to their respective original symbols
+for (col in colnames(ranks))
+{
+  x <- get(col)
+  x <- merge(x,ranks[,col])
+  colnames(x)[colnames(x) == col] <- "Rank"
+  x<-na.omit(x)
+  assign(col,x)
+}
+
+# merge the returns indicator values back to their original symbols
+for (col in colnames(pos_rets))
+{
+  x <- get(col)
+  x <- merge(x,pos_rets[,col])
+  colnames(x)[colnames(x) == col] <- "PosRets"
+  x<-na.omit(x)
+  assign(col,x)
+}
+
+```
+
+###Step 1h: Strategy, Portfolio and Account are created
+
+```{r}
+rm.strat(strategyname) # remove if it already exists
+initPortf(portfolioname,symbollist,initDate=initdate,currency="USD")
+initAcct(accountname,portfolios=portfolioname,initDate=initdate,initEq=startingcapital,currency="USD")
+initOrders(portfolio=portfolioname,initDate=initdate)
+strategy(strategyname,store=TRUE)
+strat <- getStrategy(strategyname)
+```
+
+###Step 1i: Order sizing function
+The order sizing function is used to ensure that money is equally split between the investment products
+
+
+```{r}
+# order sizing function
+osInvestAll <- function (data, timestamp, orderqty, ordertype, orderside, portfolio, symbol, ruletype, ..., orderprice) 
+{   # get date in usable xts format
+    datePos <- format(timestamp,"%Y-%m-%d")
+    # update the portfolio - to find out how much money is in it
+	  updatePortf(Portfolio=portfolio,Symbol=symbol,Dates=datePos)
+    updateAcct(portfolio,Dates=datePos)   
+    updateEndEq(portfolio,Dates=datePos)     
+    # whats in it right now?
+    Posn <- getPosQty(portfolio,Symbol=symbol,Date=datePos)
+    equity <- getEndEq(portfolio,datePos)  / buypositions
+    # what am I about to buy?
+    OpenPrice <- getPrice(get(symbol), prefer="Open")[datePos]
+    # how many could I get?
+    UnitSize <- as.numeric(trunc(equity/OpenPrice)) 
+    #print(sprintf("Order Sizing on %s: Account value %f, Close Price %f, Order price %f, UnitSize %f",datePos,equity,ClosePrice,orderprice,UnitSize))
+    # OK  - return the maximum I can buy with my current portfolio equity
+     if (Posn == 0) {
+       
+       if (orderside == "long"){
+         print(orderside)
+         osInvestAll <- UnitSize
+       } else{
+         print(orderside)
+         osInvestAll <- -UnitSize
+       }
+      }else
+            {osInvestAll <- 0
+             }   
+      
+}
+```
+
+
+### Step 1: Define indicators, signals and rules
+The original strategy is based on the simple idea that the ETFs are ranked by the ROC (return of the last n months). The best ETF is bought and hold for one month. Therefore two signals and two rules are created:
+Signal 1: If the Rank is lower or euqal the Buypositions (which is 1 in case we want to buy only one ETF) then the signal is set to TRUE.
+Signal 2: If the Rank is above the buyposition variable the signal is set to TRUE.
+
+Rule 1: Long Entry rule which buys the ETF when the longEntry Signal is TRUE. Buy is performed at the Open price and osInvestAll function is used to calculate the ordersize.
+Rule 2: Exit rule for the strategy. Based on the longExit signal the rule exits the current position and sells the entire amount in the portfolio.
+
+```{r}
+add.signal(strategyname,name="sigThreshold", arguments=list(column="Rank",threshold = buypositions,relationship="lte"), label="longEntry") 
+
+add.signal(strategyname, name="sigThreshold", arguments=list(column="Rank",threshold=buypositions, relationship="gt"), label="longExit") 
+
+add.rule(strategyname,name="ruleSignal",arguments=list(sigcol="longEntry",sigval=TRUE,orderqty=100,ordertype="market",orderside="long",replace=FALSE, prefer="Open",osFUN='osInvestAll', TxnFees=txncost, orderset="ocolong"), type="enter", path.dep=TRUE, label="enterLONG") 
+
+add.rule(strategyname, name="ruleSignal", arguments=list(sigcol="longExit",sigval=TRUE, orderqty="all",ordertype="market",orderside="long",replace=FALSE, prefer="Open", TxnFees=txncost, orderset="ocolong"), type="exit", path.dep=TRUE, label="exitLONG")
+
+###
+# STOP LOSS RULE
+###
+# stopLossPercent <- 0.001
+# 
+# add.rule(strategyname, name = "ruleSignal", arguments = list(sigcol="longEntry", sigval=TRUE, orderqty="all", ordertype="stoplimit", orderside="long", replace=FALSE, tmult=TRUE, threshold=stopLossPercent, orderset="ocolong"), type="chain", parent = "enterLONG", label="StopLossLONG", enabled = TRUE)
+
+###
+# STOP LOSS RULE
+###
+
+
+summary(getStrategy(strategyname))
+```
+
+##Step 2: Apply the strategy
+
+###Step 2a: 
+The strategy is applied by simply calling the applyStrategy function. This generates for all symbols in the symbollist the marketdata object which is then used to perform the trades.
+```{r}
+
+#applyIndicators(strategyname, mktdata = XLU.csv)
+#applySignals(strategyname, mktdata = mktdata)
+
+applyStrategy(strategy=strategyname,portfolios=portfolioname)
+
+updatePortf(strategyname)
+updateAcct(strategyname)
+updateEndEq(strategyname)
+
+ob <- getOrderBook(portfolioname)
+ob$`GRS`$ILF.csv["2007::2009",]
+
+```
+
+Calculate endequity and return of the strategy
+
+```{r}
+# end equity
+acct <- getAccount(accountname)
+equity.v1 <- acct$summary$End.Eq
+colnames(equity.v1) <- c("Equity V1")
+
+par(mfrow=c(1,1))
+plot(equity.v1, main="Account Equity Strategy V1")
+tail(equity.v1)
+
+# returns of the strategy
+rets.v1 <- monthlyReturn(equity.v1, type="arithmetic")
+colnames(rets.v1) <- c("Returns V1")
+
+```
+
+
+We directly see that our equity doesen't perform well from 2009 until today. So the next step would be to improve that.
+
+###Step 2b: Visualize the data
+
+Just a visualization of all tradable instruments. A chart is plotted of all ETFs which can be traded with this strategy. By this the general trend of the instruments can be evaluated. 
+```{r}
+
+myTheme <- chart_theme()
+myTheme$col$dn.col <- 'red'
+myTheme$col$up.col <- 'lightblue'
+myTheme$col$dn.border <- 'lightgray'
+myTheme$col$up.border <- 'lightgray'
+
+par(mfrow=c(2,1))
+for (symbol in symbollist){
+  chart <- get(symbol)
+   if (nrow(getTxns(portfolioname,Symbol=symbol)) > 1)
+    {
+      print(chart_Series(x=chart,name=symbol,
+                     theme=myTheme, 
+                     subset=daterange))
+    }
+  
+}
+par(mfrow=c(1,1))
+```
+
+##Step 3: Analysis and Reporting
+###Step 3a: List transactions and chart Positions
+List the transactions and show the trade positions on each instruments price chart
+```{r}
+for (symbol in symbollist)
+{
+    if (nrow(getTxns(portfolioname,Symbol=symbol)) > 1)
+    {
+        symboldata <- get(symbol)
+        chart.Posn(portfolioname,Symbol=symbol,type='candlesticks', theme=myTheme,subset=daterange)
+    }
+}
+```
+ 
+###Step 3b: Trade Statistics and per-Trade statistic
+Calculate the trade statistics, show how to group them together to present a subset in a table, and then calculate per-trade statistics
+
+Statistics for the strategy based on every single instrument in the portfolio.
+
+```{r}
+library(PerformanceAnalytics)
+# Get returns for the all instruments in the portfoilio
+rets.portfolio.v1 <- PortfReturns(Account=accountname)
+rownames(rets.portfolio.v1) <- NULL
+
+par(mfrow=c(1,1))
+chart.CumReturns(rets.portfolio.v1,colorset=rich10equal,legend.loc="topleft",main="Cumulative Returns")
+
+
+rets.v1.comb <- cbind(rets.v1, rets.portfolio.v1)
+
+tstats <- tradeStats(Portfolio=portfolioname, Symbols=symbollist)
+for (i in 1:nrow(tstats)) {
+  trades.tab <- cbind(
+    c("Trades", "Win Percent", "Loss Percent","W/L Ratio"),
+    c(tstats[i,"Num.Trades"],
+      round(tstats[i,"Percent.Positive"],2),
+      round(tstats[i,"Percent.Negative"],2),
+      round((tstats[i,"Percent.Positive"]/tstats[i,"Percent.Negative"]),2)))
+  trades1 <- trades.tab
+  rownames(trades1) <- c("Trades", 
+                         "Win Percent", 
+                         "Loss Percent", 
+                         "W/L Ratio")
+  trades1 <- trades1[,2]
+  print(row.names(tstats[i,]))
+  print(trades1)
+  writeLines("")
+  }
+
+
+tab.perf <- table.Arbitrary(rets.v1.comb, metrics=c("Return.cumulative",
+                                            "Return.annualized",
+                                            "SharpeRatio.annualized",
+                                            "CalmarRatio"),
+                            metricsNames=c("Cumulative Return", 
+                                           "Annualized Return", 
+                                           "Annualized Sharp Ratio",
+                                           "Calmar Ratio"))
+tab.risk <- table.Arbitrary(rets.v1.comb, metrics=c("StdDev.annualized",
+                                            "maxDrawdown",
+                                            "VaR",
+                                            "ES"),
+                            metricsNames=c("Annualized StdDev", 
+                                           "Max Drawdown",
+                                           "Value-at-Risk",
+                                           "Conditional VaR"),
+                            method=c("historical"))
+colnames(tab.perf) <- substr(colnames(tab.perf),1,3)
+colnames(tab.risk) <- substr(colnames(tab.risk),1,3)
+
+writeLines("Performance Metrics")
+tab.perf
+writeLines("Risk Metrics")
+tab.risk
+
+```
+
+###Step 3c: View Portfolio Performance Chart
+View portfolio return analytics
+```{r}
+
+chart.Boxplot(rets.v1.comb,colorset=rich10equal)
+chart.CumReturns(rets.v1.comb,colorset=rich10equal,legend.loc="topleft",main="Cumulative Returns")
+chart.RiskReturnScatter(rets.v1.comb)
+plot(equity.v1, main="Account Equity Strategy V1")
+```
+
+###Step 3d: Calculate Portfolio Statistics
+Calculate portfolio analytics
+```{r}
+tab.perf <- table.Arbitrary(rets.v1.comb, metrics=c("Return.cumulative", "Return.annualized","SharpeRatio.annualized","CalmarRatio"),
+                            metricsNames=c("Cumulative Return", "Annualized Return", "Annualized Sharpe Ratio","Calmar Ratio"))
+tab.perf
+
+table.AnnualizedReturns(rets.v1.comb)
+```
+###Step 3e: Generate the buy-and-hold portfolio, account, and transactions
+When testing a technical/quantitative rule, it is important to compare the results to the buy-and-hold alternative.  All we need to do is create a new portfolio and a new account, and create two transactions.  The first transaction is a buy at the start of the data.  The second is a sell at the end of the data. Then we can obtain the full set of analytics for the buy-and-hold portfolio.
+```{r}
+symbol <- "SPX.csv" # SP500 index
+#range of data for simulation
+daterange <- '2004::2018' 
+# obtain the data - use adjusted data
+LoadCourseIndexFile("~/Desktop/R/GRS/BH/","SPX.csv", dates = "2004::2018")
+stock(symbol,currency="USD")
+# convert data to monthly
+x<-get(symbol)
+x=to.monthly(x,indexAt="startof",drop.time=FALSE, OHLC=TRUE) # needs "endof" and drop.time=FALSE
+indexFormat(x) <- '%Y-%m-%d'
+x <- x[,4] # Close
+# tidy up columnames
+colnames(x) <- symbol
+assign(symbol,x)
+
+head(SPX.csv)
+
+# remove any objects we are going to create - for easy re-running
+suppressWarnings(try(rm(list=c("account.buyhold","portfolio.buyhold"),pos=.blotter)))
+
+# initialize new portfolio and account for the buy-and-hold simulation
+initPortf("buyhold",symbol,initDate=initdate,currency="USD")
+startingcapital <- 10000
+initAcct("buyhold",portfolios="buyhold",initDate=initdate,initEq=startingcapital,currency="USD")
+buyholdobject <- SPX.csv
+buyholdsymbol <- "SPX.csv"
+colnames(buyholdobject) <- "Close"
+colnames(SPX.csv) <- "Close"
+
+currentdate <- first(time(buyholdobject))
+closeprice <- as.numeric(Cl(buyholdobject[currentdate,]))
+unitsize <- as.numeric(trunc(startingcapital/closeprice))
+addTxn("buyhold",Symbol=buyholdsymbol,TxnDate=currentdate,TxnPrice=closeprice,TxnQty=unitsize,TxnFees=0)
+# place an exit transaction on the last day of data
+lastdate <-last(time(buyholdobject))
+lastprice <- as.numeric(Cl(buyholdobject[lastdate,]))
+addTxn("buyhold",Symbol=buyholdsymbol,TxnDate=lastdate,TxnPrice=lastprice,TxnQty=-unitsize,TxnFees=0)
+# update portfolio and account
+updatePortf(Portfolio="buyhold")
+updateAcct(name="buyhold")
+updateEndEq(Account="buyhold")
+chart.Posn("buyhold",Symbol=buyholdsymbol, theme=myTheme,type="symbol")
+```
+
+###Step 3f: Generate statistics for the buy-and-hold portfolio
+Generate returns and metrics of the buy-and-hold portfolio/account and compare statistics for the quantitative/technical portfolio to the buy-and-hold portfolio
+
+Equity and returns of the buy and hold strategy
+```{r}
+equity.bh <- getAccount("buyhold")$summary$End.Eq
+colnames(equity.bh) <- c("Equity BH")
+equity.bh.v1 <- cbind(equity.bh, equity.v1)
+
+
+rets.bh <- monthlyReturn(equity.bh, type="arithmetic")
+colnames(rets.bh) <- c("Returns BH")
+rets.bh.v1 <- cbind(rets.bh, rets.v1)
+```
+
+Compare BH with the quantitative strategy V1
+```{r}
+plot.zoo(equity.bh.v1,plot.type="single",col=c('red','blue'),main="Final Equity Comparison",xlab="Date",ylab="USD $")
+legend(x="topleft",legend=colnames(equity.bh.v1),col=c("red","blue"),lty=1) # add a legend to the chart
+
+chart.RiskReturnScatter(rets.bh.v1)
+table.AnnualizedReturns(rets.bh.v1)
+table.Stats(rets.bh.v1)
+charts.PerformanceSummary(rets.bh.v1, geometric=T, wealth.index=TRUE)
+```
+
+
+## Strategy Risk
+
+```{r}
+
+logR <- monthlyReturn(equity.v1,type="arithmetic") 
+index(logR) <- as.yearmon(index(logR))
+
+library(quantmod)
+
+dir <- "~/Desktop/R/GRS/Risk/"
+ff <- read.csv(paste0(dir,"FFFactors.csv"))
+ffxts <- as.xts(ff[,-1],order.by=as.Date(ff$dates))
+index(ffxts) <- as.yearmon(index(ffxts))
+
+funddata <- merge(logR,ffxts)
+funddata <- funddata[complete.cases(funddata),]
+# Calculate Excess Returns above the risk free rate
+funddata$excessrtn <- funddata$monthly.returns*100 - funddata$rf
+head(funddata)
+tail(funddata)
+```
+
+## Perform a CAPM Regression
+```{r}
+capm <- lm(excessrtn ~ mkt.rf, data=funddata)
+summary(capm)
+```
+
+```{r}
+# Run Fama-French 3 factor Regression
+ff3regression <- lm(excessrtn ~ mkt.rf + smb + hml, data=funddata)
+summary(ff3regression)
+```
+
+# Strategy Improvement
+In order to improve the Global Rotation Strategy, it is important to make sure that the Long Entries are only triggered, when the ROC over the last n periods was positiv. Means that in times of recessions, where the entire economy is in a downwards trend, nothing should be traded. Still the top ranked ETFs (amount depends on the buypositions variable) are bought, but only if the PosRets column indicated a positive ROC over the last n periods.
+
+```{r}
+strategyname.alt <- paste(strategyname,".","v2", sep = "")
+portfolioname.alt <- paste(portfolioname,".","v2", sep = "")
+accountname.alt <- paste(accountname,".","v2", sep = "")
+rm.strat(strategyname.alt) 
+initPortf(portfolioname.alt,symbollist,initDate=initdate,currency="USD")
+initAcct(accountname.alt,portfolios=portfolioname.alt,initDate=initdate,initEq=startingcapital,currency="USD")
+initOrders(portfolio=portfolioname.alt,initDate=initdate)
+strategy(strategyname.alt,store=TRUE)
+strat <- getStrategy(strategyname.alt)
+```
+
+## New Strategy Rules
+
+```{r}
+### 2
+# Long Entry Signal based on the Rank and the PosRets --> only perform long entries when PosRets is 1, this means
+# the ROC was positive. 
+### 2
+add.indicator(strategyname.alt, name = "sigThreshold", arguments=list(column="Rank", threshold=buypositions, relationship="lte"), label = "bpos")
+
+add.signal(strategyname.alt, name="sigFormula", arguments=list(columns=c("Rank.bpos", "PosRets"), formula="(Rank.bpos == 1) & (PosRets==1)"), label="longEntry")
+
+### 2
+# Long Entry Signal based on the Rank and the PosRets --> only perform long entries when PosRets is 1, this means
+# the ROC was positive. 
+### 2
+
+###
+# long
+###
+#add.signal(strategyname.alt,name="sigThreshold", arguments=list(column="Rank",threshold = buypositions,relationship="lte"), label="longEntry") 
+
+add.signal(strategyname.alt, name="sigThreshold", arguments=list(column="Rank",threshold=buypositions, relationship="gt"), label="longExit") 
+
+add.rule(strategyname.alt,name="ruleSignal",arguments=list(sigcol="longEntry",sigval=TRUE,orderqty=100,ordertype="market",orderside="long",replace=FALSE, prefer="Open",osFUN='osInvestAll', orderset="ocolong", TxnFees=txncost), type="enter",label="LE", path.dep=TRUE) 
+
+add.rule(strategyname.alt, name="ruleSignal", arguments=list(sigcol="longExit",sigval=TRUE, orderqty="all",ordertype="market",orderside="long",replace=FALSE, prefer="Open", orderset="ocolong", TxnFees=txncost), type="exit", label = "LX", path.dep=TRUE)
+
+
+###
+# STOP LOSS RULE
+###
+# stopLossPercent <- 0.025
+# add.rule(strategyname.alt, name='ruleSignal',
+#   arguments = list(sigcol="longEntry", sigval=TRUE,
+#     replace=FALSE,
+#     orderside='long',
+#     ordertype='stoplimit',
+#     tmult=TRUE,
+#     threshold=quote( stopLossPercent ),
+#     orderqty='all',
+#     orderset='ocolong'
+#   ),
+#   type='chain', parent="LE",
+#   label='StopLossLong',
+#   enabled=TRUE
+# )
+
+
+###
+# short
+###
+
+#add.signal(strategyname.alt, name="sigFormula", arguments=list(columns=c("Rank", "PosRets"), formula="(Rank == 5) & (PosRets==0)"), label="shortEntry")
+
+#add.signal(strategyname.alt, name="sigFormula", arguments=list(columns=c("Rank", "PosRets"), formula="(Rank != 5) | (PosRets == 1)"), label="shortExit")
+
+
+
+#add.signal(strategyname,name="sigThreshold", arguments=list(column="Rank",threshold = length(symbollist)-buypositions, relationship="gt"), label="shortEntry") 
+
+#add.signal(strategyname, name="sigThreshold", arguments=list(column="Rank",threshold=length(symbollist)-buypositions, relationship="lte"), label="shortExit") 
+
+
+
+#add.rule(strategyname.alt,name="ruleSignal",arguments=list(sigcol="shortEntry",sigval=TRUE,orderqty=100,ordertype="market",orderside="short",replace=FALSE, prefer="Open",osFUN='osInvestAll'), type="enter", path.dep=TRUE) 
+
+#add.rule(strategyname.alt, name="ruleSignal", arguments=list(sigcol="shortExit",sigval=TRUE, orderqty="all",ordertype="market",orderside="short",replace=FALSE, prefer="Open"), type="exit", path.dep=TRUE)
+
+summary(getStrategy(strategyname.alt))
+```
+
+##Step 2: Apply the strategy
+
+###Step 2a: 
+The strategy is applied by simply calling the applyStrategy function. This generates for all symbols in the symbollist the marketdata object which is then used to perform the trades.
+```{r}
+
+#applyIndicators(strategyname.alt, mktdata = IEV.csv)
+#applySignals(strategyname.alt, mktdata = mktdata)
+
+applyStrategy(strategy=strategyname.alt,portfolios=portfolioname.alt)
+
+updatePortf(strategyname.alt)
+updateAcct(strategyname.alt)
+updateEndEq(strategyname.alt)
+```
+
+Calculate equity and return of the improved strategy
+```{r}
+acct.alt <- getAccount(accountname.alt)
+
+equity.v2 <- acct.alt$summary$End.Eq
+colnames(equity.v2) <- c("Equity.V2")
+
+rets.v2 <- monthlyReturn(equity.v2, type = "arithmetic")
+colnames(rets.v2) <- c("Return V2")
+
+
+par(mfrow=c(2,1))
+plot(equity.v2, main="Consolidated Account Equity of V2 Strategy")
+plot(equity.v1, main="Consolidated Account Equity of V1 Strategy")
+par(mfrow=c(1,1))
+tail(equity.v1)
+tail(equity.v2)
+```
+
+Compare with the V1 quantitative strategy
+```{r}
+
+equity.bh.v1.v2 <- cbind(equity.bh, equity.v1, equity.v2)
+tail(equity.bh.v1.v2)
+plot.zoo(equity.bh.v1.v2,plot.type="single",col=c('red','blue','green'),main="Final Equity Comparison",xlab="Date",ylab="USD $")
+legend(x="topleft",legend=colnames(equity.bh.v1.v2),col=c("red","blue","green"),lty=1) # add a legend to the chart
+
+
+rets.bh.v1.v2 <- cbind(rets.bh,rets.v1, rets.v2)
+
+chart.RiskReturnScatter(rets.bh.v1.v2)
+table.AnnualizedReturns(rets.bh.v1.v2)
+table.Stats(rets.bh.v1.v2)
+charts.PerformanceSummary(rets.bh.v1.v2,geometric=T,wealth.index=TRUE)
+chart.RelativePerformance(rets.v2, rets.v1, main="Comparison of strategies", colorset = c("blue", "red"), legend.loc = "topleft")
+```
+
+```{r}
+rets.v2.tmp <- rets.v2
+index(rets.v2.tmp) <- as.yearmon(index(rets.v2.tmp))
+
+funddata.alt <- merge(rets.v2.tmp,ffxts)
+funddata.alt <- funddata.alt[complete.cases(funddata.alt),]
+# Calculate Excess Returns above the risk free rate
+funddata.alt$excessrtn <- funddata.alt$monthly.returns*100 - funddata.alt$rf
+head(funddata.alt)
+tail(funddata.alt)
+```
+
+## Perform a CAPM Regression
+```{r}
+capm <- lm(excessrtn ~ mkt.rf, data=funddata.alt)
+summary(capm)
+```
+
+```{r}
+# Run Fama-French 3 factor Regression
+ff3regression <- lm(excessrtn ~ mkt.rf + smb + hml, data=funddata.alt)
+summary(ff3regression)
+```
+
+
+
+# Strategy Improvement V3 --> Adding Short rules
+In addition to the rule that the long position is only opened when the returns were positiv, I am adding short rules. I open a short position for the ETF which is ranked last and when the ROC over the last n periods was negative. The exit of the short position is triggered when the ETF is not on the last position anymore OR when the ROC over the last n periods is not negative anymore. By this I ensure that short positions are closed before the ETF changes back to an uptrend. 
+
+```{r}
+strategyname.alt.v3 <- paste(strategyname,".","v3", sep = "")
+portfolioname.alt.v3 <- paste(portfolioname,".","v3", sep = "")
+accountname.alt.v3 <- paste(accountname,".","v3", sep = "")
+rm.strat(strategyname.alt.v3) 
+initPortf(portfolioname.alt.v3,symbollist,initDate=initdate,currency="USD")
+initAcct(accountname.alt.v3,portfolios=portfolioname.alt.v3,initDate=initdate,initEq=startingcapital,currency="USD")
+initOrders(portfolio=portfolioname.alt.v3,initDate=initdate)
+strategy(strategyname.alt.v3,store=TRUE)
+strat <- getStrategy(strategyname.alt.v3)
+```
+
+## New Strategy Rules
+
+```{r}
+### 2
+# Long Entry Signal based on the Rank and the PosRets --> only perform long entries when PosRets is 1, this means
+# the ROC was positive. 
+### 2
+
+add.indicator(strategyname.alt.v3, name = "sigThreshold", arguments=list(column="Rank", threshold=buypositions, relationship="lte"), label = "bpos")
+
+add.signal(strategyname.alt.v3, name="sigFormula", arguments=list(columns=c("Rank.bpos", "PosRets"), formula="(Rank.bpos == 1) & (PosRets==1)"), label="longEntry")
+
+### 2
+# Long Entry Signal based on the Rank and the PosRets --> only perform long entries when PosRets is 1, this means
+# the ROC was positive. 
+### 2
+
+###
+# long
+###
+#add.signal(strategyname.alt,name="sigThreshold", arguments=list(column="Rank",threshold = buypositions,relationship="lte"), label="longEntry") 
+
+add.signal(strategyname.alt.v3, name="sigThreshold", arguments=list(column="Rank",threshold=buypositions, relationship="gt"), label="longExit") 
+
+add.rule(strategyname.alt.v3,name="ruleSignal",arguments=list(sigcol="longEntry",sigval=TRUE,orderqty=100,ordertype="market",orderside="long",replace=FALSE, prefer="Open",osFUN='osInvestAll', orderset="ocolong", TxnFees=txncost), type="enter",label="LE", path.dep=TRUE) 
+
+add.rule(strategyname.alt.v3, name="ruleSignal", arguments=list(sigcol="longExit",sigval=TRUE, orderqty="all",ordertype="market",orderside="long",replace=FALSE, prefer="Open", orderset="ocolong", TxnFees=txncost), type="exit", label = "LX", path.dep=TRUE)
+
+
+###
+# STOP LOSS RULE
+###
+# stopLossPercent <- 0.025
+# add.rule(strategyname.alt, name='ruleSignal',
+#   arguments = list(sigcol="longEntry", sigval=TRUE,
+#     replace=FALSE,
+#     orderside='long',
+#     ordertype='stoplimit',
+#     tmult=TRUE,
+#     threshold=quote( stopLossPercent ),
+#     orderqty='all',
+#     orderset='ocolong'
+#   ),
+#   type='chain', parent="LE",
+#   label='StopLossLong',
+#   enabled=TRUE
+# )
+
+
+###
+# short
+###
+
+symbolCount <- length(symbollist)
+shortThreshold <- symbolCount-buypositions
+
+add.indicator(strategyname.alt.v3, name = "sigThreshold", arguments=list(column="Rank", threshold=shortThreshold, relationship="gt"), label = "ShortBpos")
+
+add.signal(strategyname.alt.v3, name="sigFormula", arguments=list(columns=c("Rank.ShortBpos", "PosRets"), formula="(Rank.ShortBpos == 1) & (PosRets==0)"), label="shortEntry")
+
+add.signal(strategyname.alt.v3, name="sigFormula", arguments=list(columns=c("Rank.ShortBpos", "PosRets"), formula="(Rank.ShortBpos == 0) | (PosRets == 1)"), label="shortExit")
+
+
+add.rule(strategyname.alt.v3,name="ruleSignal",arguments=list(sigcol="shortEntry",sigval=TRUE,orderqty=100,ordertype="market",orderside="short",replace=FALSE, prefer="Open",osFUN='osInvestAll', TxnFees=txncost), type="enter", path.dep=TRUE) 
+
+add.rule(strategyname.alt.v3, name="ruleSignal", arguments=list(sigcol="shortExit",sigval=TRUE, orderqty="all",ordertype="market",orderside="short",replace=FALSE, prefer="Open", TxnFees=txncost), type="exit", path.dep=TRUE)
+
+summary(getStrategy(strategyname.alt.v3))
+```
+
+##Step 2: Apply the strategy
+
+###Step 2a: 
+The strategy is applied by simply calling the applyStrategy function. This generates for all symbols in the symbollist the marketdata object which is then used to perform the trades.
+```{r}
+
+#applyIndicators(strategyname.alt.v3, mktdata = IEV.csv)
+#applySignals(strategyname.alt.v3, mktdata = mktdata)
+
+applyStrategy(strategy=strategyname.alt.v3,portfolios=portfolioname.alt.v3)
+
+updatePortf(strategyname.alt.v3)
+updateAcct(strategyname.alt.v3)
+updateEndEq(strategyname.alt.v3)
+```
+
+Calculate equity and return of the improved strategy
+```{r}
+acct.alt.v3 <- getAccount(accountname.alt.v3)
+
+equity.v3 <- acct.alt.v3$summary$End.Eq
+colnames(equity.v3) <- c("Equity.V3")
+
+rets.v3 <- monthlyReturn(equity.v3, type = "arithmetic")
+colnames(rets.v3) <- c("Return V3")
+
+plot(equity.v3, main="Consolidated Account Equity of V2 Strategy")
+
+```
+
+Compare with the V1 and V2 quantitative strategy
+```{r}
+
+equity.bh.v1.v2.v3 <- cbind(equity.bh, equity.v1, equity.v2, equity.v3)
+tail(equity.bh.v1.v2.v3)
+plot.zoo(equity.bh.v1.v2.v3,plot.type="single",col=c('red','blue','green'),main="Final Equity Comparison",xlab="Date",ylab="USD $")
+legend(x="topleft",legend=colnames(equity.bh.v1.v2.v3),col=c("red","blue","green"),lty=1) # add a legend to the chart
+
+
+rets.bh.v1.v2.v3 <- cbind(rets.bh,rets.v1, rets.v2, rets.v3)
+
+for (symbol in symbollist)
+{
+    if (nrow(getTxns(portfolioname.alt.v3,Symbol=symbol)) > 1)
+    {
+        symboldata <- get(symbol)
+        chart.Posn(portfolioname.alt.v3,Symbol=symbol,type='candlesticks', theme=myTheme,subset=daterange)
+        chart.ME(portfolioname.alt.v3, Symbol=symbol, type="MFE")
+        chart.ME(portfolioname.alt.v3, Symbol=symbol, type="MAE")
+    }
+}
+
+
+chart.RiskReturnScatter(rets.bh.v1.v2.v3)
+table.AnnualizedReturns(rets.bh.v1.v2.v3)
+table.Stats(rets.bh.v1.v2.v3)
+charts.PerformanceSummary(rets.bh.v1.v2.v3,geometric=T,wealth.index=TRUE)
+chart.RelativePerformance(rets.v3, rets.v2, main="Comparison of strategies", colorset = c("blue", "red"), legend.loc = "topleft")
+```
+
+```{r}
+rets.v3.tmp <- rets.v3
+index(rets.v3.tmp) <- as.yearmon(index(rets.v3.tmp))
+
+funddata.alt.v3 <- merge(rets.v3.tmp,ffxts)
+funddata.alt.v3 <- funddata.alt.v3[complete.cases(funddata.alt.v3),]
+# Calculate Excess Returns above the risk free rate
+funddata.alt.v3$excessrtn <- funddata.alt.v3$monthly.returns*100 - funddata.alt.v3$rf
+head(funddata.alt.v3)
+tail(funddata.alt.v3)
+```
+
+## Perform a CAPM Regression
+```{r}
+capm <- lm(excessrtn ~ mkt.rf, data=funddata.alt.v3)
+summary(capm)
+```
+
+```{r}
+# Run Fama-French 3 factor Regression
+ff3regression <- lm(excessrtn ~ mkt.rf + smb + hml, data=funddata.alt.v3)
+summary(ff3regression)
+```
+
+
+
