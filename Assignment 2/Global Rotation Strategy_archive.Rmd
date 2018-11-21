@@ -39,7 +39,7 @@ portfolioname <- "GRS"
 accountname <- portfolioname
 strategyname <- portfolioname
 startingcapital <- 10000 
-txncost = -70
+txncost = -100
 
 buypositions <- 1
 roc.var <- 3
@@ -55,7 +55,7 @@ dir <- "~/Desktop/R/GRS/"
 
 symbollist <-GetCourseDirList(dir)
 #range of data for simulation
-daterange <- '2003::2018' 
+daterange <- '2000::2018' 
 # obtain the data - use adjusted data
 LoadCourseDir(dir)
 
@@ -397,88 +397,50 @@ table.AnnualizedReturns(rets.v1.comb)
 ```
 ###Step 3e: Generate the buy-and-hold portfolio, account, and transactions
 When testing a technical/quantitative rule, it is important to compare the results to the buy-and-hold alternative.  All we need to do is create a new portfolio and a new account, and create two transactions.  The first transaction is a buy at the start of the data.  The second is a sell at the end of the data. Then we can obtain the full set of analytics for the buy-and-hold portfolio.
+```{r}
+symbol <- "SPX.csv" # SP500 index
+#range of data for simulation
+daterange <- '2004::2018' 
+# obtain the data - use adjusted data
+LoadCourseIndexFile("~/Desktop/R/GRS/BH/","SPX.csv", dates = "2004::2018")
+stock(symbol,currency="USD")
+# convert data to monthly
+x<-get(symbol)
+x=to.monthly(x,indexAt="startof",drop.time=FALSE, OHLC=TRUE) # needs "endof" and drop.time=FALSE
+indexFormat(x) <- '%Y-%m-%d'
+x <- x[,4] # Close
+# tidy up columnames
+colnames(x) <- symbol
+assign(symbol,x)
 
-```{r message=FALSE, results="hide"}
-  
-  BuyHoldDirectory = "~/Desktop/R/GRS/BH/"
-  BuyHoldInstrument = "MXWO.csv"
+head(SPX.csv)
 
-  # Any objects, in case there was a buyhold 
-  # portfolio initialized before are removed
-  suppressWarnings(try(rm(list=c("account.buyhold",
-                                 "portfolio.buyhold"),
-                          pos=.blotter)))
-  
-  # The Buy and hold instrument is loaded 
-  LoadCourseFile(BuyHoldDirectory,BuyHoldInstrument,debugme=TRUE,dates=daterange)
-  
-  symname <- BuyHoldInstrument
-  # The Buy and hold instrument is initialized
-  stock(BuyHoldInstrument,currency="USD")
-  # convert data to monthly
-  x<-get(BuyHoldInstrument)
-  x=to.monthly(x,indexAt="startof",drop.time=FALSE, OHLC=TRUE) # needs "endof" and drop.time=FALSE
-  #indexFormat(x) <- '%Y-%m-%d'
-  colnames(x)<-gsub("x.","",colnames(x)) # Change columnnames to Symbol.Open etc.
+# remove any objects we are going to create - for easy re-running
+suppressWarnings(try(rm(list=c("account.buyhold","portfolio.buyhold"),pos=.blotter)))
 
-  assign(BuyHoldInstrument,x)
-  
-  BuyHoldSymbol<-get(BuyHoldInstrument)
-  
-  # The portfolio and account "buyhold" is initialized
-  initPortf("buyhold",
-            BuyHoldInstrument,
-            initDate=initdate,
-            currency="USD")
-  initAcct("buyhold",
-           portfolios="buyhold",
-           initDate=initdate,
-           initEq=startingcapital,
-           currency="USD")
-  
-  # The first date of the defined daterange is selected
-  currentdate <- first(time(BuyHoldSymbol))
-  
-  # The close price at this date is selected
-  closeprice <- as.numeric(Cl(BuyHoldSymbol[currentdate,]))
-  
-  # Calculate the unitsize we can buy with our startingcapital
-  unitsize <- as.numeric(trunc(startingcapital/closeprice))
-  
-  # Place the transaction for the instrument at the first date
-  addTxn("buyhold",
-         Symbol=BuyHoldInstrument,
-         TxnDate=currentdate,
-         TxnPrice=closeprice,
-         TxnQty=unitsize,
-         TxnFees=txncost)
-  
-  # Select the last date of the daterange period
-  lastdate <-last(time(BuyHoldSymbol))
-  
-  # Select the price at the last date
-  lastprice <- as.numeric(Cl(BuyHoldSymbol[lastdate,]))
-  
-  # Sell the position at the last date of the daterange
-  addTxn("buyhold",
-         Symbol=BuyHoldInstrument,
-         TxnDate=lastdate,
-         TxnPrice=lastprice,
-         TxnQty=-unitsize,
-         TxnFees=txncost)
-  
-  # update portfolio and account
-  updatePortf(Portfolio="buyhold")
-  updateAcct(name="buyhold")
-  updateEndEq(Account="buyhold")
-```  
-  
-### Step 2: Visualize the Buy and Hold strategy
+# initialize new portfolio and account for the buy-and-hold simulation
+initPortf("buyhold",symbol,initDate=initdate,currency="USD")
+startingcapital <- 10000
+initAcct("buyhold",portfolios="buyhold",initDate=initdate,initEq=startingcapital,currency="USD")
+buyholdobject <- SPX.csv
+buyholdsymbol <- "SPX.csv"
+colnames(buyholdobject) <- "Close"
+colnames(SPX.csv) <- "Close"
 
-```{r message=FALSE}
-  chart.Posn("buyhold",Symbol=BuyHoldInstrument, type='candlesticks', theme=myTheme, subset=daterange)
+currentdate <- first(time(buyholdobject))
+closeprice <- as.numeric(Cl(buyholdobject[currentdate,]))
+unitsize <- as.numeric(trunc(startingcapital/closeprice))
+addTxn("buyhold",Symbol=buyholdsymbol,TxnDate=currentdate,TxnPrice=closeprice,TxnQty=unitsize,TxnFees=0)
+# place an exit transaction on the last day of data
+lastdate <-last(time(buyholdobject))
+lastprice <- as.numeric(Cl(buyholdobject[lastdate,]))
+addTxn("buyhold",Symbol=buyholdsymbol,TxnDate=lastdate,TxnPrice=lastprice,TxnQty=-unitsize,TxnFees=0)
+# update portfolio and account
+updatePortf(Portfolio="buyhold")
+updateAcct(name="buyhold")
+updateEndEq(Account="buyhold")
+chart.Posn("buyhold",Symbol=buyholdsymbol, theme=myTheme,type="symbol")
 ```
-
 
 ###Step 3f: Generate statistics for the buy-and-hold portfolio
 Generate returns and metrics of the buy-and-hold portfolio/account and compare statistics for the quantitative/technical portfolio to the buy-and-hold portfolio
@@ -488,12 +450,11 @@ Equity and returns of the buy and hold strategy
 equity.bh <- getAccount("buyhold")$summary$End.Eq
 colnames(equity.bh) <- c("Equity BH")
 equity.bh.v1 <- cbind(equity.bh, equity.v1)
-equity.bh.v1 <- na.omit(equity.bh.v1)
+
 
 rets.bh <- monthlyReturn(equity.bh, type="arithmetic")
 colnames(rets.bh) <- c("Returns BH")
 rets.bh.v1 <- cbind(rets.bh, rets.v1)
-rets.bh.v1 <- na.omit(rets.bh.v1)
 ```
 
 Compare BH with the quantitative strategy V1
@@ -653,33 +614,26 @@ colnames(equity.v2) <- c("Equity.V2")
 
 rets.v2 <- monthlyReturn(equity.v2, type = "arithmetic")
 colnames(rets.v2) <- c("Return V2")
-```
 
 
-## Compare Equity of V1 with the improved strategy 
-We can clearly see that the improved strategy generates more return. 
-Phases where the original strategy generates negative returns, e.g., 2008 - 2009 are improved in the V2 strategy by simply not being invested in the market. 
-```{r}
 par(mfrow=c(2,1))
 plot(equity.v2, main="Consolidated Account Equity of V2 Strategy")
 plot(equity.v1, main="Consolidated Account Equity of V1 Strategy")
 par(mfrow=c(1,1))
+tail(equity.v1)
+tail(equity.v2)
 ```
 
 Compare with the V1 quantitative strategy
 ```{r}
 
 equity.bh.v1.v2 <- cbind(equity.bh, equity.v1, equity.v2)
-equity.bh.v1.v2 <- na.omit(equity.bh.v1.v2)
 tail(equity.bh.v1.v2)
-
 plot.zoo(equity.bh.v1.v2,plot.type="single",col=c('red','blue','green'),main="Final Equity Comparison",xlab="Date",ylab="USD $")
 legend(x="topleft",legend=colnames(equity.bh.v1.v2),col=c("red","blue","green"),lty=1) # add a legend to the chart
 
 
-rets.bh.v1.v2 <- cbind(rets.v2, rets.v1, rets.bh)
-rets.bh.v1.v2 <- na.omit(rets.bh.v1.v2)
-tail(rets.bh.v1.v2)
+rets.bh.v1.v2 <- cbind(rets.bh,rets.v1, rets.v2)
 
 chart.RiskReturnScatter(rets.bh.v1.v2)
 table.AnnualizedReturns(rets.bh.v1.v2)
@@ -792,9 +746,9 @@ add.signal(strategyname.alt.v3, name="sigFormula", arguments=list(columns=c("Ran
 add.signal(strategyname.alt.v3, name="sigFormula", arguments=list(columns=c("Rank.ShortBpos", "PosRets"), formula="(Rank.ShortBpos == 0) | (PosRets == 1)"), label="shortExit")
 
 
-add.rule(strategyname.alt.v3,name="ruleSignal",arguments=list(sigcol="shortEntry",sigval=TRUE,orderqty=100,ordertype="market",orderside="short",replace=FALSE, prefer="Open",osFUN='osInvestAll', TxnFees=txncost), type="enter", path.dep=TRUE, label="ShortEntry") 
+add.rule(strategyname.alt.v3,name="ruleSignal",arguments=list(sigcol="shortEntry",sigval=TRUE,orderqty=100,ordertype="market",orderside="short",replace=FALSE, prefer="Open",osFUN='osInvestAll', TxnFees=txncost), type="enter", path.dep=TRUE) 
 
-add.rule(strategyname.alt.v3, name="ruleSignal", arguments=list(sigcol="shortExit",sigval=TRUE, orderqty="all",ordertype="market",orderside="short",replace=FALSE, prefer="Open", TxnFees=txncost), type="exit", path.dep=TRUE, label="ShortExit")
+add.rule(strategyname.alt.v3, name="ruleSignal", arguments=list(sigcol="shortExit",sigval=TRUE, orderqty="all",ordertype="market",orderside="short",replace=FALSE, prefer="Open", TxnFees=txncost), type="exit", path.dep=TRUE)
 
 summary(getStrategy(strategyname.alt.v3))
 ```
@@ -832,16 +786,14 @@ plot(equity.v3, main="Consolidated Account Equity of V2 Strategy")
 Compare with the V1 and V2 quantitative strategy
 ```{r}
 
-equity.bh.v1.v2.v3 <- cbind(equity.v3, equity.v1, equity.v2, equity.bh)
-equity.bh.v1.v2.v3 <- na.omit(equity.bh.v1.v2.v3)
+equity.bh.v1.v2.v3 <- cbind(equity.bh, equity.v1, equity.v2, equity.v3)
 tail(equity.bh.v1.v2.v3)
-
-plot.zoo(equity.bh.v1.v2.v3,plot.type="single",col=c('red','blue','green', 'black'),main="Final Equity Comparison",xlab="Date",ylab="USD $")
-legend(x="topleft",legend=colnames(equity.bh.v1.v2.v3),col=c("red","blue","green", "black"),lty=1) # add a legend to the chart
+plot.zoo(equity.bh.v1.v2.v3,plot.type="single",col=c('red','blue','green'),main="Final Equity Comparison",xlab="Date",ylab="USD $")
+legend(x="topleft",legend=colnames(equity.bh.v1.v2.v3),col=c("red","blue","green"),lty=1) # add a legend to the chart
 
 
 rets.bh.v1.v2.v3 <- cbind(rets.bh,rets.v1, rets.v2, rets.v3)
-rets.bh.v1.v2.v3 <- na.omit(rets.bh.v1.v2.v3)
+
 for (symbol in symbollist)
 {
     if (nrow(getTxns(portfolioname.alt.v3,Symbol=symbol)) > 1)
