@@ -226,7 +226,9 @@ The order sizing function is used to ensure that money is equally split between 
 
 ```{r message=FALSE, results="hide"}
 # order sizing function
-osInvestAll <- function (data, timestamp, orderqty, ordertype, orderside, portfolio, symbol, ruletype, ..., orderprice) 
+osInvestAll <- function (data, timestamp, orderqty, 
+                         ordertype, orderside, portfolio, 
+                         symbol, ruletype, ..., orderprice) 
 {   
     datePos <- format(timestamp,"%Y-%m-%d")
     
@@ -266,7 +268,11 @@ osInvestAll <- function (data, timestamp, orderqty, ordertype, orderside, portfo
 ```{r message=FALSE, results="hide"}
 rm.strat(strategyname) # remove if it already exists
 initPortf(portfolioname,symbollist,initDate=initdate,currency="USD")
-initAcct(accountname,portfolios=portfolioname,initDate=initdate,initEq=startingcapital,currency="USD")
+initAcct(accountname,
+         portfolios=portfolioname,
+         initDate=initdate,
+         initEq=startingcapital,
+         currency="USD")
 initOrders(portfolio=portfolioname,initDate=initdate)
 strategy(strategyname,store=TRUE)
 strat <- getStrategy(strategyname)
@@ -329,22 +335,11 @@ add.rule(strategyname,
          type="exit", 
          path.dep=TRUE, 
          label="exitLONG")
-
-###
-# STOP LOSS RULE
-###
-# stopLossPercent <- 0.001
-# 
-# add.rule(strategyname, name = "ruleSignal", arguments = list(sigcol="longEntry", sigval=TRUE, orderqty="all", ordertype="stoplimit", orderside="long", replace=FALSE, tmult=TRUE, threshold=stopLossPercent, orderset="ocolong"), type="chain", parent = "enterLONG", label="StopLossLONG", enabled = TRUE)
-
-###
-# STOP LOSS RULE
-###
 ```
 
 ### Step 3: Run the strategy
 
-```{r message=FALSE, results="hide"}
+```{r message=FALSE, warning=FALSE, results="hide"}
 applyStrategy(strategy=strategyname,portfolios=portfolioname)
 
 updatePortf(strategyname)
@@ -353,12 +348,7 @@ updateEndEq(strategyname)
 ```
 
 ### Step 4: Check orderbook
-Check the orderbook for some symbols in order to make sure that the orders are palced correctly and as intended.
-```{r message=FALSE}
-subset <- "2007::20010"
-ob <- getOrderBook(portfolioname)
-ob$`GRS`$MDY.csv[subset,]
-```
+Check the orderbook to verify that all transactions are made correctly. The orderbook can be found in the [appendix](#Appendix). 
 
 ## Analyze strategy
 
@@ -387,13 +377,11 @@ par(mfrow=c(1,1))
 ```
 
 
-### Step 3: Visualize the data original data
+### Step 3: Visualize the original data
 
 Below are visualizations of the original instruments which are traded. This plots can be used to get a first impression of the long term trend of the instrument and to see which general behaviour of the price movement can be observed. 
 
 ```{r message=FALSE, results="hide"}
-
-par(mfrow=c(2,1))
 for (symbol in symbollist){
   chart <- get(symbol)
    if (nrow(getTxns(portfolioname,Symbol=symbol)) > 1)
@@ -404,7 +392,6 @@ for (symbol in symbollist){
     }
   
 }
-par(mfrow=c(1,1))
 ```
 
 
@@ -420,7 +407,11 @@ for (symbol in symbollist)
     if (nrow(getTxns(portfolioname,Symbol=symbol)) > 1)
     {
         symboldata <- get(symbol)
-        chart.Posn(portfolioname,Symbol=symbol,type='candlesticks', theme=myTheme,subset=daterange)
+        chart.Posn(portfolioname,
+                   Symbol=symbol,
+                   type='candlesticks', 
+                   theme=myTheme,
+                   subset=daterange)
     }
 }
 ```
@@ -484,9 +475,15 @@ tab.perf
 writeLines("Risk Metrics")
 tab.risk
 
-# present it as a pretty table
-somestats <- data.frame(rownames(tab.perf),tab.perf[,1], rownames(tab.risk),tab.risk[,1])
-colnames(somestats) <- c("Performance Metric", "Performance Value", "Risk Metric", "Risk Value")
+# present performance metrics for the entire strategy
+somestats <- data.frame(rownames(tab.perf),
+                        tab.perf[,1], 
+                        rownames(tab.risk),
+                        tab.risk[,1])
+colnames(somestats) <- c("Performance Metric", 
+                         "Performance Value", 
+                         "Risk Metric", 
+                         "Risk Value")
 somestats
 
 ```
@@ -496,7 +493,10 @@ The following plot shows the cumulative returns of the instruments which are use
 
 ```{r message=FALSE, results="hide"}
 par(mfrow=c(1,1))
-chart.CumReturns(rets.v1.comb,colorset=rich10equal,legend.loc="topleft",main="Cumulative Returns")
+chart.CumReturns(rets.v1.comb,
+                 colorset=rich10equal,
+                 legend.loc="topleft",
+                 main="Cumulative Returns")
 chart.Boxplot(rets.v1.comb,colorset=rich10equal)
 chart.RiskReturnScatter(rets.v1.comb)
 ```
@@ -545,6 +545,8 @@ ff3regression <- lm(excessrtn ~ mkt.rf + smb + hml, data=funddata)
 summary(ff3regression)
 ```
 
+The results of the strategy's risk analysis indicate that no excess returns are generated. The intercept of the regression models (CAPM as well as Fama-French model) is negative and not significant. This means that risk adjusted and compared to the market we cannot generate an alpha (excess returns). However, the beta-coefficient for the market risk free return is significant and with about 0.68 below 0. Thus, the strategy is not significantly market sensitiv.
+
 ## Part C: Compare with Buy and Hold Strategy
 After having analyzed the strategy extensively, a comparison to another strategy should be made to evaluate the performance based on a benchmark which could have been an alternative investment. In this case a simple buy and hold strategy is used. At the first date of the trading period we place a buy order and sell our position at the last day of the selected period. In order to do this, we create a new Portfolio and a new Account. As ETFs are used which cover the entire world market, the appropriate Buy and Hold comparison would be an index which covers also the entire world market. Therefore, the MSCI World Index is used as a benchmark.
 
@@ -563,7 +565,10 @@ After having analyzed the strategy extensively, a comparison to another strategy
                           pos=.blotter)))
   
   # The Buy and hold instrument is loaded 
-  LoadCourseFile(BuyHoldDirectory,BuyHoldInstrument,debugme=TRUE,dates=daterange)
+  LoadCourseFile(BuyHoldDirectory,
+                 BuyHoldInstrument,
+                 debugme=TRUE,
+                 dates=daterange)
   
   symname <- BuyHoldInstrument
   # The Buy and hold instrument is initialized
@@ -628,7 +633,11 @@ After having analyzed the strategy extensively, a comparison to another strategy
 ### Step 2: Visualize the Buy and Hold strategy
 
 ```{r message=FALSE}
-  chart.Posn("buyhold",Symbol=BuyHoldInstrument, type='candlesticks', theme=myTheme, subset=daterange)
+  chart.Posn("buyhold",
+             Symbol=BuyHoldInstrument, 
+             type='candlesticks', 
+             theme=myTheme, 
+             subset=daterange)
 ```
 
 
@@ -652,13 +661,21 @@ rets.bh.v1 <- na.omit(rets.bh.v1)
 #### Visually compare Equity curves
 
 ```{r message=FALSE, results="hide"}
-plot.zoo(equity.bh.v1,plot.type="single",col=c('red','blue'),main="Final Equity Comparison",xlab="Date",ylab="USD $")
-legend(x="topleft",legend=colnames(equity.bh.v1),col=c("red","blue"),lty=1) # add a legend to the chart
+plot.zoo(equity.bh.v1,
+         plot.type="single",
+         col=c('red','blue'),
+         main="Final Equity Comparison",
+         xlab="Date",
+         ylab="USD $")
+legend(x="topleft",
+       legend=colnames(equity.bh.v1),
+       col=c("red","blue"),
+       lty=1)
 ```
 
 
 #### Visualization of risk and return
-We can see that the Buy and Hold strategy generates higher returns while having a smaller annualized risk. The sharpe ratio is higher and therefore the buy and hold strategy is better, compared to the GRS strategy.
+We can see that the Buy and Hold strategy generates higher returns while having a smaller annualized risk. The sharpe ratio is higher and therefore we cannot outperform the buy and hold strategy.
 ```{r message=FALSE}
 chart.RiskReturnScatter(rets.bh.v1, xlim = c(0,0.3))
 table.AnnualizedReturns(rets.bh.v1)
@@ -685,7 +702,11 @@ portfolioname.alt <- paste(portfolioname,".","v2", sep = "")
 accountname.alt <- paste(accountname,".","v2", sep = "")
 rm.strat(strategyname.alt) 
 initPortf(portfolioname.alt,symbollist,initDate=initdate,currency="USD")
-initAcct(accountname.alt,portfolios=portfolioname.alt,initDate=initdate,initEq=startingcapital,currency="USD")
+initAcct(accountname.alt,
+         portfolios=portfolioname.alt,
+         initDate=initdate,
+         initEq=startingcapital,
+         currency="USD")
 initOrders(portfolio=portfolioname.alt,initDate=initdate)
 strategy(strategyname.alt,store=TRUE)
 strat <- getStrategy(strategyname.alt)
@@ -750,9 +771,9 @@ add.rule(strategyname.alt,
          path.dep=TRUE)
 ```
 
-##Step 3: Apply the strategy
+## Step 3: Apply the strategy
 
-```{r message=FALSE, results="hide"}
+```{r message=FALSE, warning=FALSE, results="hide"}
 applyStrategy(strategy=strategyname.alt,portfolios=portfolioname.alt)
 
 updatePortf(strategyname.alt)
@@ -775,7 +796,7 @@ colnames(rets.v2) <- c("Return V2")
 
 ### Step 2: Visualize Equity of GRS.V2 
 We can clearly see that the improved strategy generates more return. 
-Phases where the original strategy generates negative returns, e.g., 2008 - 2009 are improved in the V2 strategy by simply not being invested in the market. 
+Phases where the original strategy generates negative returns, e.g., 2008 - 2009 are improved in the V2 strategy by simply not being invested in the market. This makes sense, as we only enter a trade, when the past 3 months generated positive returns, we avoid phases in which the entire world market (2008-2009) is in a negative trend. As a result, we can see that we are not invested during this time at all. 
 ```{r message=FALSE, results="hide"}
 par(mfrow=c(2,1))
 plot(equity.v2, main="Consolidated Account Equity of V2 Strategy")
@@ -827,7 +848,7 @@ somestats
 ```
 
 ### Step 5: Compare returns
-When we compare the returns of the Buy and hold strategy, the original strategy and the improved GRS.V2 strategy, we can see that the GRS strategies performed equally well until the financial crisis. While the standard strategy was not able to prevent drawdowns, the improved strategy is robust against such situations as investments are only made when the momentum (measured by ROC) is positive. Therefore, during the financial crisis no investments were done. After that the performance is also comparable. From 2011 the GRS.V2 outperforms the standard strategy strongly.
+When we compare the returns of the Buy and hold strategy, the original strategy and the improved GRS.V2 strategy, we can see that the GRS strategies performed equally well until the financial crisis. While the standard strategy was not able to prevent drawdowns, the improved strategy is robust against such situations as investments are only made when the momentum (measured by ROC) is positive. Therefore, during the financial crisis no investments were done. After that the performance is also comparable. From 2011 the GRS.V2 outperforms the standard strategy strongly. Moreover, we can see that the drawdown decreases drastically as we do not trade during the GFC.
 
 ```{r message=FALSE, results="hide"}
 tab.perf
@@ -870,8 +891,11 @@ ff3regression <- lm(excessrtn ~ mkt.rf + smb + hml, data=funddata.alt)
 summary(ff3regression)
 ```
 
+The improved strategy's risk analysis shows that we can generate excess risk adjusted returns. The intercept of the regression is in both tested models (CAPM and Fama-French Model) significant and positive with about 0.1. This leads to a risk-adjusted outperformance of about 0.1*12 = 1.2% per year. 
+
 # Strategy Improvement V3
 Now, that we eliminated the negative impact of down-phases in the market, the next improvement is to see whether we can generate profits during these phases by adding short-rules. A short position is opened for the ETF with the worse performance accoring to the momentum (ROC). Moreover, it is only opened if the return over the momentum period was negativ. The exit of the short position is triggered when ETF is not ranked at the last position anymore OR when the return over the last momentum period is positiv again.
+
 
 ```{r message=FALSE, results="hide"}
 strategyname.alt.v3 <- paste(strategyname,".","v3", sep = "")
@@ -998,7 +1022,7 @@ add.rule(strategyname.alt.v3,
 
 ## Apply the strategy
 
-```{r message=FALSE, results="hide"}
+```{r message=FALSE, warning=FALSE, results="hide"}
 applyStrategy(strategy=strategyname.alt.v3,portfolios=portfolioname.alt.v3)
 
 updatePortf(strategyname.alt.v3)
@@ -1006,7 +1030,7 @@ updateAcct(strategyname.alt.v3)
 updateEndEq(strategyname.alt.v3)
 ```
 
-## Analysis
+## Analysis of the improved (V3) Strategy
 ### Retrieve Equity of GRS.V3 strategy
 
 ```{r message=FALSE, results="hide"}
@@ -1018,7 +1042,8 @@ colnames(equity.v3) <- c("Equity.V3")
 
 
 ### Visualize Equity of GRS.V3
-As we can see, the curves look very similar, besides the fact that the scale is different for the GRS.V3 strategy. Through the implementation of short selling rules we are able to increase the returns by a significant amount.
+As we can see, the curves look very similar, besides the fact that the scale is different for the GRS.V3 strategy. Through the implementation of short selling rules we are able to increase the returns by a significant amount. Moreover, we are able to generate returns during phases where the V2 strategy simply did not perform any trades. By this we generate returns during strong and weak market phases.
+
 ```{r message=FALSE, results="hide"}
 par(mfrow=c(2,1))
 plot(equity.v3, main="Consolidated Account Equity of V3 Strategy")
@@ -1028,12 +1053,20 @@ par(mfrow=c(1,1))
 
 ### Comparison of all strategies
 Especially the comparison of the equity development of all 4 strategies shows the significant difference between the strategies and the impact of the implemented improvements. While the first improvement just eliminated the negative impacts of down-markets, the second improvement used short sells in down-phases in order to generate even more profits.
+
 ```{r message=FALSE, results="hide"}
 equity.bh.v1.v2.v3 <- cbind(equity.v3, equity.v1, equity.v2, equity.bh)
 equity.bh.v1.v2.v3 <- na.omit(equity.bh.v1.v2.v3)
 
-plot.zoo(equity.bh.v1.v2.v3,plot.type="single",col=c('red','blue','green', 'black'),main="Final Equity Comparison",xlab="Date",ylab="USD $")
-legend(x="topleft",legend=colnames(equity.bh.v1.v2.v3),col=c("red","blue","green", "black"),lty=1)
+plot.zoo(equity.bh.v1.v2.v3,plot.type="single",
+         col=c('red','blue','green', 'black'),
+         main="Final Equity Comparison",
+         xlab="Date",
+         ylab="USD $")
+legend(x="topleft",
+       legend=colnames(equity.bh.v1.v2.v3),
+       col=c("red","blue","green", "black"),
+       lty=1)
 ```
 
 ### Visualizing Risk and Return
@@ -1049,7 +1082,7 @@ chart.RiskReturnScatter(rets.bh.v1.v2.v3)
 table.AnnualizedReturns(rets.bh.v1.v2.v3)
 ```
 
-#### General Strategy Statistics
+#### General Strategy Statistics of the improved V3 strategy
 ```{r}
 tab.perf <- table.Arbitrary(rets.bh.v1.v2.v3, metrics=c("Return.cumulative",
                                             "Return.annualized",
@@ -1074,7 +1107,7 @@ colnames(somestats) <- c("Performance Metric", "Performance Value", "Risk Metric
 somestats
 ```
 
-### Compare performance
+### Compare returns of all strategies
 The comparison of the returns of all strategies shows again what we already saw in the equity comparison plot. 
 In contrast to the V2 strategy, the GRS.V3 performed trades throughout the entire period and generated even in phases of global crisis returns.
 ```{r message=FALSE, results="hide"}
@@ -1084,7 +1117,8 @@ charts.PerformanceSummary(rets.bh.v1.v2.v3,geometric=T,wealth.index=TRUE)
 ```
 
 ### Direct comparison GRS.V2 and GRS.V3
-The relative performance of the V3 strategy compared to the V2 strategy shows that especially during the financial crisis the strategy which included shorting outperformed the GRS.V2 strategy. 
+The relative performance of the V3 strategy compared to the V2 strategy shows that especially during the financial crisis the strategy which included short-selling outperformed the GRS.V2 strategy. 
+
 ```{r message=FALSE, results="hide"}
 chart.RelativePerformance(rets.v3, rets.v2, main="Comparison of strategies", colorset = c("blue", "red"), legend.loc = "topleft")
 ```
@@ -1098,8 +1132,8 @@ for (symbol in symbollist)
     {
         symboldata <- get(symbol)
         chart.Posn(portfolioname.alt.v3,Symbol=symbol,type='candlesticks', theme=myTheme,subset=daterange)
-        chart.ME(portfolioname.alt.v3, Symbol=symbol, type="MFE")
-        chart.ME(portfolioname.alt.v3, Symbol=symbol, type="MAE")
+        chart.ME(portfolioname.alt.v3, Symbol=symbol, type="MFE", scale="percent")
+        chart.ME(portfolioname.alt.v3, Symbol=symbol, type="MAE", scale="percent")
     }
 }
 ```
@@ -1114,8 +1148,6 @@ funddata.alt.v3 <- merge(rets.v3.tmp,ffxts)
 funddata.alt.v3 <- funddata.alt.v3[complete.cases(funddata.alt.v3),]
 # Calculate Excess Returns above the risk free rate
 funddata.alt.v3$excessrtn <- funddata.alt.v3$monthly.returns*100 - funddata.alt.v3$rf
-head(funddata.alt.v3)
-tail(funddata.alt.v3)
 ```
 
 #### Perform a CAPM Regression
@@ -1132,4 +1164,54 @@ ff3regression <- lm(excessrtn ~ mkt.rf + smb + hml, data=funddata.alt.v3)
 summary(ff3regression)
 ```
 
+The analysis of the improved V3 strategy's risk shows again what we have seen with the V2 improvement strategy. We can generate a significant alpha of approx. 0.1 and by this generate risk adjusted excess returns. 
+
+
 # Conclusion
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+plot.zoo(equity.bh.v1.v2.v3,plot.type="single",
+         col=c('red','blue','green', 'black'),
+         main="Final Equity Comparison",
+         xlab="Date",
+         ylab="USD $")
+legend(x="topleft",
+       legend=colnames(equity.bh.v1.v2.v3),
+       col=c("red","blue","green", "black"),
+       lty=1)
+
+rets.all <- cbind(rets.bh.v1.v2.v3[,2], rets.bh.v1.v2.v3[,4], rets.bh.v1.v2.v3[,3], rets.bh.v1.v2.v3[,1])
+
+tab.perf <- table.Arbitrary(rets.all, metrics=c("Return.cumulative",
+                                            "Return.annualized",
+                                            "SharpeRatio.annualized",
+                                            "CalmarRatio"),
+                            metricsNames=c("Cumulative Return", 
+                                           "Annualized Return", 
+                                           "Annualized Sharp Ratio",
+                                           "Calmar Ratio"))
+tab.risk <- table.Arbitrary(rets.all, metrics=c("StdDev.annualized",
+                                            "maxDrawdown",
+                                            "VaR",
+                                            "ES"),
+                            metricsNames=c("Annualized StdDev", 
+                                           "Max Drawdown",
+                                           "Value-at-Risk",
+                                           "Conditional VaR"),
+                            method=c("historical"))
+#colnames(tab.perf) <- substr(colnames(tab.perf),1,3)
+#colnames(tab.risk) <- substr(colnames(tab.risk),1,3)
+
+writeLines("Performance Metrics")
+tab.perf
+writeLines("Risk Metrics")
+tab.risk
+```
+
+
+# Appendix {#Appendix}
+## Orderbook
+
+```{r message=FALSE}
+ob <- getOrderBook(portfolioname)
+ob
+```
