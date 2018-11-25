@@ -70,7 +70,7 @@ Pacific region (EPP - iShares MSCI Pacific ex-Japan)
 
 According to the strategy, the ETFs follow slightly different economic cycles. There are certain periods where one market outperforms another until it becomes overpriced. As a result investors begin to shift there money in other cheaper valued markets. With the GRS strategy, this trends can be followed.
 
-# Implementation of the trading strategy
+# Implementation of the trading strategy and Benchmark
 ## Part A: Initialization
 
 ### Step 1: General Setup
@@ -136,10 +136,10 @@ for (symbol in symbollist)
     stock(symbollist,currency="USD")
     # convert data to monthly
     x<-get(symbol)
-    x=to.monthly(x,indexAt="startof",drop.time=FALSE, OHLC=TRUE) # needs "endof" and drop.time=FALSE
+    x=to.monthly(x,indexAt="startof",drop.time=FALSE, OHLC=TRUE)
     indexFormat(x) <- '%Y-%m-%d'
     x <- x[,"x.Close"]
-    colnames(x)<-gsub("x.","",colnames(x)) # Change columnnames to Symbol.Open etc.
+    colnames(x)<-gsub("x.","",colnames(x))
     colnames(x) <- symbol
 
     assign(symbol,x)
@@ -564,7 +564,8 @@ index(ffxts) <- as.yearmon(index(ffxts))
 funddata <- merge(logR,ffxts)
 funddata <- funddata[complete.cases(funddata),]
 # Calculate Excess Returns above the risk free rate
-funddata$excessrtn <- funddata$monthly.returns*100 - funddata$rf
+funddata$monthly.returns <- funddata$monthly.returns*100
+funddata$excessrtn <- funddata$monthly.returns - funddata$rf
 ```
 
 ##### Perform a CAPM Regression
@@ -580,7 +581,7 @@ ff3regression <- lm(excessrtn ~ mkt.rf + smb + hml, data=funddata)
 summary(ff3regression)
 ```
 
-The results of the strategy's risk analysis indicate that no excess returns are generated. The intercept of the regression models (CAPM as well as Fama-French model) is negative and not significant. This means that risk adjusted and compared to the market we cannot generate an alpha (excess returns). However, the beta-coefficient for the market risk free return is significant and with about 0.68 below 0. Thus, the strategy is not significantly market sensitiv.
+The results of the strategy's risk analysis indicate that no excess returns can be generated. The intercept of the regression models (CAPM as well as Fama-French model) is slightly positive but not significant. This means that risk adjusted and compared to the market we cannot generate an alpha (excess returns). However, the beta-coefficient for the market risk free return is significant and with about 0.6 lower than 1. Thus, the strategy is slightly tilted towards less risky instruments.
 
 ## Part C: Compare with Buy and Hold Strategy
 After having analyzed the strategy extensively, a comparison to another strategy should be made to evaluate the performance based on a benchmark which could have been an alternative investment. In this case a simple buy and hold strategy is used. At the first date of the trading period we place a buy order and sell our position at the last day of the selected period. In order to do this, we create a new Portfolio and a new Account. As ETFs are used which cover the entire world market, the appropriate Buy and Hold comparison would be an index which covers also the entire world market. Therefore, the MSCI World Index is used as a benchmark.
@@ -732,7 +733,8 @@ charts.PerformanceSummary(rets.bh.v1, geometric=T, wealth.index=TRUE)
 ```
 
 ## Conclusion
-The Global Rotation Strategy in its plain generates 7% annulaized return while the compared buy and hold strategy generates about 6%. The Sharp Ratio for the strategy is 0.48 compared to 0.43 for the buy and hold strategy. As we saw, the risk analysis has shown that we cannot generate excess returns with this strategy compared to the market. Especially after 2009 the strategy does not generate enough returns to outperform the buy and hols strategy. In fact, after 2009 the returns of the strategy are not significantly positive. The following chapters describe improvement options for the strategy, in order to increase the returns and the performance, especially for the time horizon after the GFC.
+The Global Rotation Strategy in its plain generates 5.96% annulaized return while the compared buy and hold strategy generates 6.7% annualized return. The Sharp Ratio for the strategy is 0.40 compared to 0.51 for the buy and hold strategy. As we saw, the risk analysis has shown that we cannot generate excess returns with this strategy compared to the market. Especially after 2009 the strategy does not generate enough returns to outperform the buy and hols strategy. In fact, after 2009 the returns of the strategy are not significantly positive while the buy and hold strategy generates positive returns from 2009 until the end of the observation period. The following chapters describe improvement options for the strategy, in order to increase the returns and the performance, especially for the time horizon after the GFC. 
+Note: Without transaction costs, the strategy in its plain form, outperforms the market in regards to annualized returns. This leads to the assumption that the holding period of the ETFs is too short in order to generate enough returns to compensate for the transaction costs.
 
 # Strategy Improvement
 As we saw in the analysis above, the GRS strategy in its plain form cannot outperform a buy and hold strategy of the MSCI World index. 
@@ -913,10 +915,16 @@ chart.RelativePerformance(rets.v2, rets.v1, main="Comparison of strategies",
 rets.v2.tmp <- rets.v2
 index(rets.v2.tmp) <- as.yearmon(index(rets.v2.tmp))
 
+dir <- "~/Desktop/R/GRS/Risk/"
+ff <- read.csv(paste0(dir,"FFFactors.csv"))
+ffxts <- as.xts(ff[,-1],order.by=as.Date(ff$dates))
+index(ffxts) <- as.yearmon(index(ffxts))
+
 funddata.alt <- merge(rets.v2.tmp,ffxts)
 funddata.alt <- funddata.alt[complete.cases(funddata.alt),]
 # Calculate Excess Returns above the risk free rate
-funddata.alt$excessrtn <- funddata.alt$monthly.returns*100 - funddata.alt$rf
+funddata.alt$Return.V2 <- funddata.alt$Return.V2*100
+funddata.alt$excessrtn <- funddata.alt$Return.V2 - funddata.alt$rf
 ```
 
 #### Perform a CAPM Regression
@@ -932,10 +940,14 @@ ff3regression <- lm(excessrtn ~ mkt.rf + smb + hml, data=funddata.alt)
 summary(ff3regression)
 ```
 
-The improved strategy's risk analysis shows that we can generate excess risk adjusted returns. The intercept of the regression is in both tested models (CAPM and Fama-French Model) significant and positive with about 0.1. This leads to a risk-adjusted outperformance of about 0.1*12 = 1.2% per year. 
+The improved strategy's risk analysis shows that we can generate excess returns after adjusting for risk. The intercept of the regression is in both tested models (CAPM and Fama-French Model) significant and positive with about 0.55 % which leads to an excess return of 6.6 % per year. 
+Moreover, the beta is also significant with about 0.37 which means that our strategy is significantly tilted towards instrument that have lower risk.
+
+## Conclusion
+We see that the improved strategy generates an annualized return of 10.9%. The annualized Sharp Ratio is 1. There are two interesting observations which I would like to summarize here. First, by using the rule that we only buy the top ranked ETF if and only if it had positive returns over the observation period, we eliminate the large drawdown during the GFC. The equity curve is just flat at that point which means that we are not invested at all. An improvement to this could be to invest in such market phases into risk free instruments as Bonds. We can minimize the maximum drawdown from 33.7 % in the original strategy to 11 % in the improved version. Second, we observe a much better performance in general after the GFC. The following chapter describes another suggestion how the strategy can be improved even further.
 
 # Strategy Improvement V3
-Now, that we eliminated the negative impact of down-phases in the market, the next improvement is to see whether we can generate profits during these phases by adding short-rules. A short position is opened for the ETF with the worse performance accoring to the momentum (ROC). Moreover, it is only opened if the return over the momentum period was negativ. The exit of the short position is triggered when ETF is not ranked at the last position anymore OR when the return over the last momentum period is positiv again.
+Now, that we eliminated the negative impact of down-phases in the market, the next improvement is to see whether we can generate profits during these phases by adding short-rules. A short position is opened for the ETF with the worse performance accoring to the momentum (ROC). Moreover, it is only opened if the return over the momentum period was negativ. The exit of the short position is triggered when ETF is not ranked at the last position anymore OR when the return over the observed period is not negative anymore.
 
 
 ```{r message=FALSE, results="hide"}
@@ -1111,7 +1123,7 @@ legend(x="topleft",
 ```
 
 ### Visualizing Risk and Return
-The visualization and comparison of the Risk and Return scatter shows that the risk increased minimally but the return increased significantly, compared to the GRS.V2 strategy. The Sharpe Ratio is now above 1. The annualized return is 12.8 % with an annualized standard deviation  of 12.6%.
+The visualization and comparison of the Risk and Return scatter shows that the risk increased minimally but the return increased significantly, compared to the GRS.V2 strategy. The annualized Sharpe Ratio is now 1.3. The annualized return is 14.9 % with an annualized standard deviation  of 11%. Moreover, the maximum drawdown decreased again compared to the previous strategy to only 7.5 %. 
 ```{r message=FALSE, results="hide"}
 rets.v3 <- monthlyReturn(equity.v3, type = "arithmetic")
 colnames(rets.v3) <- c("Return V3")
@@ -1158,7 +1170,7 @@ charts.PerformanceSummary(rets.bh.v1.v2.v3,geometric=T,wealth.index=TRUE)
 ```
 
 ### Direct comparison GRS.V2 and GRS.V3
-The relative performance of the V3 strategy compared to the V2 strategy shows that especially during the financial crisis the strategy which included short-selling outperformed the GRS.V2 strategy. 
+The relative performance of the V3 strategy compared to the V2 strategy shows that especially during the financial crisis the strategy which included short-selling outperformed the GRS.V2 strategy. We can also see that before the GFC the improved strategy did not lead to the expected increase in returns. The previous strategy (V2) performed slightly better. This is due to the fact that the market was in an up-trend where shortselling was sometimes responsible for a loss in returns. However, the GFC boosted the returns of the improved V3 strategy compared to the previous V2 strategy. The main reason is the implementation of the shortselling rules.
 
 ```{r message=FALSE, results="hide"}
 chart.RelativePerformance(rets.v3, rets.v2, main="Comparison of strategies", colorset = c("blue", "red"), legend.loc = "topleft")
@@ -1185,10 +1197,16 @@ for (symbol in symbollist)
 rets.v3.tmp <- rets.v3
 index(rets.v3.tmp) <- as.yearmon(index(rets.v3.tmp))
 
+dir <- "~/Desktop/R/GRS/Risk/"
+ff <- read.csv(paste0(dir,"FFFactors.csv"))
+ffxts <- as.xts(ff[,-1],order.by=as.Date(ff$dates))
+index(ffxts) <- as.yearmon(index(ffxts))
+
 funddata.alt.v3 <- merge(rets.v3.tmp,ffxts)
 funddata.alt.v3 <- funddata.alt.v3[complete.cases(funddata.alt.v3),]
 # Calculate Excess Returns above the risk free rate
-funddata.alt.v3$excessrtn <- funddata.alt.v3$monthly.returns*100 - funddata.alt.v3$rf
+funddata.alt.v3$Return.V3 <- funddata.alt.v3$Return.V3*100
+funddata.alt.v3$excessrtn <- funddata.alt.v3$Return.V3 - funddata.alt.v3$rf
 ```
 
 #### Perform a CAPM Regression
@@ -1205,7 +1223,7 @@ ff3regression <- lm(excessrtn ~ mkt.rf + smb + hml, data=funddata.alt.v3)
 summary(ff3regression)
 ```
 
-The analysis of the improved V3 strategy's risk shows again what we have seen with the V2 improvement strategy. We can generate a significant alpha of approx. 0.1 and by this generate risk adjusted excess returns. 
+The analysis of the improved V3 strategy's risk shows again what we have seen with the V2 improvement strategy. We can generate a significant alpha of about 13.9 % per year after adjusting for risk. This can be seen as a very strong outperformance of the market.
 
 
 # Conclusion
@@ -1248,6 +1266,15 @@ writeLines("Risk Metrics")
 tab.risk
 ```
 
+The GRS is based on ranking. The 5 ETFs, which represent the world economy (US, EU, Latin America, Emergin Markets, Asia Pacific) are ranked based on momentum, specifically based on the Rate of Change (ROC) indicator. The ROC is calculated based on the monthly returns of the last 3 months. The best ranked ETF is bought and held for 1 month. If an ETF is ranked the best in two consecutive months it is simply held and not sold. Otherwise it is sold and the ETF which is now ranked best is bought. 
+We clearly see that This strategy outperforms the market before the GFC but has a huge drawdown during the GFC as during this time even the best ranked ETFs generated negative returns. 
+A possible improvement, with the goal to limit the losses, was to only trade, when the ROC was positive. By this, it could be ensured, that there was no investment during the GFC (see green curve above). However, this could also be further improved by investing in risk free instruments during phases when no ETF generates positive returns. 
+The third step was to even further improve the strategy by not only not trading during phases of only negative returns, but also include shortselling. The result is the red equity curve above. It can be clearly shown that through shortselling of the last ranked ETF increased returns can be generated. Not only during the GFC but also during the entire time after the GFC.
+The comparison of the performance and risk metrics (see table above) shows the values for all strategies.
+Naive money management was used for backtesting the strategy. All available equity was used to buy the positions. Moreover, realistic transaction costs were included in the backtesting. 
+In summary, the strategy itself performs quiet well. When adding transaction costs, the plain strategy does not outperform the buy and hold strategy in regards to returns and risk. The proposed improvements led to a significant increase in performance with a annualized return of 14.9%, an annualized Sharp Ration of 1.3, and a maximum drawdown of 7.5%.
+The improved strategy performs excellent during different market phases. We see a steep performance during uptrends (After dot-com bubble until the GFC) but also during the GFC through shortselling and during phases where many markets performed sidewards without a clear trend. It can be assumed that such a strategy could perform as good as during the tested period in the future. 
+Although an extensive test of the strategy was performed, a formal optimization approach could bring up even more profitable and robust strategies. This could be part of future research regarding the Global Rotation Strategy.
 
 # Appendix {#Appendix}
 ## Orderbook
