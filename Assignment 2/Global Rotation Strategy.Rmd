@@ -55,9 +55,20 @@ All the results of the strategies are presented and measured against each other.
 
 # Trading Idea
 ## Global Rotation Strategy
-The GRS is based on a ranking approach. The used ETFs are ranked based on momentum which is measured by the Rate of Change (ROC) indicator. The lookback period is variable and can be tested for different values. The strategy suggests to buy the best ranked ETF. Many variations and extensions of the strategy exist which will be used and presented throughout the report. 
+The GRS is based on a ranking approach. The used ETFs are ranked based on momentum which is measured by the Rate of Change (ROC) indicator. The lookback period is variable and can be tested for different values. The same is true for the invested period. For this report the lookback period will be tested for different values between one month and 12 months. The best result will be presented in the report. The time period for being invested is one month. The strategy suggests to buy the best ranked ETF. Many variations and extensions of the strategy exist which will be used and presented throughout the report. 
 
-For the design of a well performing rotation strategy, it is important that the selected ETFs are not too volatile, show longer-term visible trends and have a good market volume, so that they cannot be manipulated. They all should have more or less the same volatility. The 5 global markets ETFs fulfill this condition. They all are capitalized enough, so that they cannot be manipulated in the short term. They follow slightly different economic cycles and have long periods where one market outperforms the others until it becomes so overpriced and investors begin to remove their money from that market in order to invest in other cheaper valued markets.
+## Choice of ETFs
+
+In order to achieve substantial returns it is benefitial for a ranking strategy that the selected ETFs are not too volatile and have long-term visible trends. It can be assumed that the best results can be achieved if the used ETFs have a comparable volatility. A large market volume makes sure that the ETFs cannot be easily manipulated.
+This is the case for all proposed ETFs in the strategy. The 5 chosen ETFs cover the world market. The following ETFs are used: 
+
+US Market (MDY- S&P MidCap 400 SPDRs)
+Europe (IEV- iShares S&P Europe 350 Index Fund)
+Emerging Markets (EEM- iShares MSCI Emerging Markets)
+Latin America (ILF- iShares S&P Latin America)
+Pacific region (EPP - iShares MSCI Pacific ex-Japan)
+
+According to the strategy, the ETFs follow slightly different economic cycles. There are certain periods where one market outperforms another until it becomes overpriced. As a result investors begin to shift there money in other cheaper valued markets. With the GRS strategy, this trends can be followed.
 
 # Implementation of the trading strategy
 ## Part A: Initialization
@@ -76,8 +87,8 @@ As well as Currency, Instruments and Time zone, you need to set starting and end
 library(quantstrat)
 currency("USD") 
 Sys.setenv(TZ="UTC")
-initdate <- '2002-12-31'
-startdate <- '2003-01-01'
+initdate <- '2003-08-31'
+startdate <- '2003-09-02'
 enddate <- '2018-12-31' 
 portfolioname <- "GRS" 
 accountname <- portfolioname
@@ -90,7 +101,6 @@ strategyname <- portfolioname
 #Set values:
 
 startingcapital <- 10000 
-txncost = -70
 
 buypositions <- 1
 roc.var <- 3
@@ -259,6 +269,31 @@ osInvestAll <- function (data, timestamp, orderqty,
           {osInvestAll <- 0
            }   
 }
+
+```
+
+
+### Step 6: Transaction cost function
+In order to include realistic transaction costs, the following transaction costs function is used.
+Depending on the order volume we have increeasing transactioncosts. Ordervolume above 28000 
+
+```{r}
+# transaction fees function
+txnc <- function(TxnQty, TxnPrice, Symbol, ...)
+{
+  ordervalue = abs(TxnQty) * TxnPrice
+  
+  if (ordervalue <= 5000)
+    return (-19.95)
+  
+  if (ordervalue <= 10000)
+    return (-24.95)
+  
+  if (ordervalue <= 28000)
+    return (-29.95)
+  
+  return(-0.11/100 * ordervalue)
+}
 ```
 
 
@@ -315,7 +350,7 @@ add.rule(strategyname,
                         replace=FALSE, 
                         prefer="Open",
                         osFUN='osInvestAll', 
-                        TxnFees=txncost, 
+                        TxnFees="txnc", 
                         orderset="ocolong"), 
          type="enter", 
          path.dep=TRUE, 
@@ -330,7 +365,7 @@ add.rule(strategyname,
                         orderside="long",
                         replace=FALSE, 
                         prefer="Open", 
-                        TxnFees=txncost, 
+                        TxnFees="txnc", 
                         orderset="ocolong"), 
          type="exit", 
          path.dep=TRUE, 
@@ -556,7 +591,7 @@ After having analyzed the strategy extensively, a comparison to another strategy
 ```{r message=FALSE, results="hide"}
   
   BuyHoldDirectory = "~/Desktop/R/GRS/BH/"
-  BuyHoldInstrument = "MXWO.csv"
+  BuyHoldInstrument = "SPY.csv"
 
   # Any objects, in case there was a buyhold 
   # portfolio initialized before are removed
@@ -568,7 +603,7 @@ After having analyzed the strategy extensively, a comparison to another strategy
   LoadCourseFile(BuyHoldDirectory,
                  BuyHoldInstrument,
                  debugme=TRUE,
-                 dates=daterange)
+                 dates="2003-08-31::2018")
   
   symname <- BuyHoldInstrument
   # The Buy and hold instrument is initialized
@@ -577,10 +612,12 @@ After having analyzed the strategy extensively, a comparison to another strategy
   x<-get(BuyHoldInstrument)
   x=to.monthly(x,indexAt="startof",drop.time=FALSE, OHLC=TRUE)
   colnames(x)<-gsub("x.","",colnames(x))
-
+  indexFormat(x) <- '%Y-%m'
   assign(BuyHoldInstrument,x)
   
   BuyHoldSymbol<-get(BuyHoldInstrument)
+  
+  
   
   # The portfolio and account "buyhold" is initialized
   initPortf("buyhold",
@@ -592,6 +629,7 @@ After having analyzed the strategy extensively, a comparison to another strategy
            initDate=initdate,
            initEq=startingcapital,
            currency="USD")
+  
   
   # The first date of the defined daterange is selected
   currentdate <- first(time(BuyHoldSymbol))
@@ -608,7 +646,7 @@ After having analyzed the strategy extensively, a comparison to another strategy
          TxnDate=currentdate,
          TxnPrice=closeprice,
          TxnQty=unitsize,
-         TxnFees=txncost)
+         TxnFees="txnc")
   
   # Select the last date of the daterange period
   lastdate <-last(time(BuyHoldSymbol))
@@ -622,7 +660,7 @@ After having analyzed the strategy extensively, a comparison to another strategy
          TxnDate=lastdate,
          TxnPrice=lastprice,
          TxnQty=-unitsize,
-         TxnFees=txncost)
+         TxnFees="txnc")
   
   # update portfolio and account
   updatePortf(Portfolio="buyhold")
@@ -650,12 +688,14 @@ Generate returns and metrics of the buy-and-hold portfolio/account and compare s
 equity.bh <- getAccount("buyhold")$summary$End.Eq
 colnames(equity.bh) <- c("Equity BH")
 equity.bh.v1 <- cbind(equity.bh, equity.v1)
-equity.bh.v1 <- na.omit(equity.bh.v1)
+
 
 rets.bh <- monthlyReturn(equity.bh, type="arithmetic")
 colnames(rets.bh) <- c("Returns BH")
+
 rets.bh.v1 <- cbind(rets.bh, rets.v1)
-rets.bh.v1 <- na.omit(rets.bh.v1)
+
+
 ```
 
 #### Visually compare Equity curves
@@ -679,6 +719,7 @@ We can see that the Buy and Hold strategy generates higher returns while having 
 ```{r message=FALSE}
 chart.RiskReturnScatter(rets.bh.v1, xlim = c(0,0.3))
 table.AnnualizedReturns(rets.bh.v1)
+table.AnnualizedReturns(rets.v1)
 
 table.Stats(rets.bh.v1)
 ```
@@ -689,6 +730,9 @@ The following plot visualizes the cumulative returns of both strategies. Also he
 ```{r message=FALSE, results="hide"}
 charts.PerformanceSummary(rets.bh.v1, geometric=T, wealth.index=TRUE)
 ```
+
+## Conclusion
+The Global Rotation Strategy in its plain generates 7% annulaized return while the compared buy and hold strategy generates about 6%. The Sharp Ratio for the strategy is 0.48 compared to 0.43 for the buy and hold strategy. As we saw, the risk analysis has shown that we cannot generate excess returns with this strategy compared to the market. Especially after 2009 the strategy does not generate enough returns to outperform the buy and hols strategy. In fact, after 2009 the returns of the strategy are not significantly positive. The following chapters describe improvement options for the strategy, in order to increase the returns and the performance, especially for the time horizon after the GFC.
 
 # Strategy Improvement
 As we saw in the analysis above, the GRS strategy in its plain form cannot outperform a buy and hold strategy of the MSCI World index. 
@@ -750,7 +794,7 @@ add.rule(strategyname.alt,
                         prefer="Open",
                         osFUN='osInvestAll', 
                         orderset="ocolong", 
-                        TxnFees=txncost), 
+                        TxnFees="txnc"), 
          type="enter",
          label="LE", 
          path.dep=TRUE) 
@@ -765,7 +809,7 @@ add.rule(strategyname.alt,
                         replace=FALSE, 
                         prefer="Open", 
                         orderset="ocolong", 
-                        TxnFees=txncost), 
+                        TxnFees="txnc"), 
          type="exit", 
          label = "LX", 
          path.dep=TRUE)
@@ -807,7 +851,6 @@ par(mfrow=c(1,1))
 ### Step 3: Visualize Equity comparison
 ```{r message=FALSE, results="hide"}
 equity.bh.v1.v2 <- cbind(equity.bh, equity.v1, equity.v2)
-equity.bh.v1.v2 <- na.omit(equity.bh.v1.v2)
 
 plot.zoo(equity.bh.v1.v2,plot.type="single",col=c('red','blue','green'),main="Final Equity Comparison",xlab="Date",ylab="USD $")
 legend(x="topleft",legend=colnames(equity.bh.v1.v2),col=c("red","blue","green"),lty=1) # add a legend to the chart
@@ -817,8 +860,6 @@ legend(x="topleft",legend=colnames(equity.bh.v1.v2),col=c("red","blue","green"),
 We can clearly see here that with the improved strategy we were not only able to increase the return drastically by eliminating all long transactions during phases when the market was not generating any returns, but we also reduced the risk of the strategy. The sharpe ratio of the improved strategy is 0.85. The Annualized Return Risk scatter plot shows the impact of the simple improvement of the strategy. The annualized return of the GRS.V2 is about 10 %.
 ```{r message=FALSE, results="hide"}
 rets.bh.v1.v2 <- cbind(rets.v2, rets.v1, rets.bh)
-rets.bh.v1.v2 <- na.omit(rets.bh.v1.v2)
-
 chart.RiskReturnScatter(rets.bh.v1.v2)
 ```
 
@@ -945,7 +986,7 @@ add.rule(strategyname.alt.v3,
                         prefer="Open",
                         osFUN='osInvestAll', 
                         orderset="ocolong", 
-                        TxnFees=txncost), 
+                        TxnFees="txnc"), 
          type="enter",
          label="LE", 
          path.dep=TRUE) 
@@ -960,7 +1001,7 @@ add.rule(strategyname.alt.v3,
                         replace=FALSE, 
                         prefer="Open", 
                         orderset="ocolong", 
-                        TxnFees=txncost), 
+                        TxnFees="txnc"), 
          type="exit", 
          label = "LX", 
          path.dep=TRUE)
@@ -1000,7 +1041,7 @@ add.rule(strategyname.alt.v3,
                         replace=FALSE, 
                         prefer="Open",
                         osFUN='osInvestAll', 
-                        TxnFees=txncost), 
+                        TxnFees="txnc"), 
          type="enter", 
          path.dep=TRUE, 
          label="ShortEntry") 
@@ -1014,7 +1055,7 @@ add.rule(strategyname.alt.v3,
                         orderside="short",
                         replace=FALSE, 
                         prefer="Open", 
-                        TxnFees=txncost), 
+                        TxnFees="txnc"), 
          type="exit", 
          path.dep=TRUE, 
          label="ShortExit")
